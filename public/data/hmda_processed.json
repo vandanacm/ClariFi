@@ -1,0 +1,756 @@
+{
+  "generatedAt": "2026-05-06T01:59:09.791Z",
+  "source": {
+    "name": "HMDA-shaped sample",
+    "note": "Small local sample using public HMDA LAR-style fields. Replace input CSV with FFIEC/CFPB modified LAR extracts for production analysis."
+  },
+  "markets": {
+    "Sacramento": {
+      "incomeMedian": 9042,
+      "priceMedian": 670000,
+      "approvalBase": 0.737,
+      "counties": [
+        {
+          "name": "Sacramento",
+          "readiness": 94,
+          "approvalRate": 0.75,
+          "applications": 8,
+          "medianApprovedIncome": 98500,
+          "medianApprovedLoan": 462500
+        },
+        {
+          "name": "Yolo",
+          "readiness": 94,
+          "approvalRate": 0.75,
+          "applications": 4,
+          "medianApprovedIncome": 91000,
+          "medianApprovedLoan": 465000
+        },
+        {
+          "name": "Placer",
+          "readiness": 94,
+          "approvalRate": 0.75,
+          "applications": 4,
+          "medianApprovedIncome": 115000,
+          "medianApprovedLoan": 680000
+        },
+        {
+          "name": "Contra Costa",
+          "readiness": 91,
+          "approvalRate": 0.667,
+          "applications": 3,
+          "medianApprovedIncome": 128000,
+          "medianApprovedLoan": 722500
+        }
+      ]
+    },
+    "Alameda": {
+      "incomeMedian": 13750,
+      "priceMedian": 1300000,
+      "approvalBase": 0.643,
+      "counties": [
+        {
+          "name": "Alameda",
+          "readiness": 86,
+          "approvalRate": 0.6,
+          "applications": 5,
+          "medianApprovedIncome": 156000,
+          "medianApprovedLoan": 930000
+        },
+        {
+          "name": "Contra Costa",
+          "readiness": 91,
+          "approvalRate": 0.667,
+          "applications": 3,
+          "medianApprovedIncome": 128000,
+          "medianApprovedLoan": 722500
+        },
+        {
+          "name": "Santa Clara",
+          "readiness": 86,
+          "approvalRate": 0.667,
+          "applications": 3,
+          "medianApprovedIncome": 188500,
+          "medianApprovedLoan": 1182500
+        },
+        {
+          "name": "San Mateo",
+          "readiness": 86,
+          "approvalRate": 0.667,
+          "applications": 3,
+          "medianApprovedIncome": 200500,
+          "medianApprovedLoan": 1262500
+        }
+      ]
+    },
+    "San Diego": {
+      "incomeMedian": 10375,
+      "priceMedian": 960000,
+      "approvalBase": 0.667,
+      "counties": [
+        {
+          "name": "San Diego",
+          "readiness": 84,
+          "approvalRate": 0.6,
+          "applications": 5,
+          "medianApprovedIncome": 121000,
+          "medianApprovedLoan": 760000
+        },
+        {
+          "name": "Orange",
+          "readiness": 89,
+          "approvalRate": 0.667,
+          "applications": 3,
+          "medianApprovedIncome": 148000,
+          "medianApprovedLoan": 867500
+        },
+        {
+          "name": "Riverside",
+          "readiness": 93,
+          "approvalRate": 0.667,
+          "applications": 3,
+          "medianApprovedIncome": 91000,
+          "medianApprovedLoan": 492500
+        },
+        {
+          "name": "Los Angeles",
+          "readiness": 94,
+          "approvalRate": 0.75,
+          "applications": 4,
+          "medianApprovedIncome": 142000,
+          "medianApprovedLoan": 810000
+        }
+      ]
+    },
+    "Los Angeles": {
+      "incomeMedian": 10667,
+      "priceMedian": 990000,
+      "approvalBase": 0.692,
+      "counties": [
+        {
+          "name": "Los Angeles",
+          "readiness": 94,
+          "approvalRate": 0.75,
+          "applications": 4,
+          "medianApprovedIncome": 142000,
+          "medianApprovedLoan": 810000
+        },
+        {
+          "name": "Orange",
+          "readiness": 89,
+          "approvalRate": 0.667,
+          "applications": 3,
+          "medianApprovedIncome": 148000,
+          "medianApprovedLoan": 867500
+        },
+        {
+          "name": "Riverside",
+          "readiness": 93,
+          "approvalRate": 0.667,
+          "applications": 3,
+          "medianApprovedIncome": 91000,
+          "medianApprovedLoan": 492500
+        },
+        {
+          "name": "Ventura",
+          "readiness": 89,
+          "approvalRate": 0.667,
+          "applications": 3,
+          "medianApprovedIncome": 133000,
+          "medianApprovedLoan": 780000
+        }
+      ]
+    }
+  },
+  "scatter": [
+    {
+      "id": "hmda-1",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Sacramento",
+      "incomeMonthly": 6500,
+      "loanAmount": 335000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.5
+    },
+    {
+      "id": "hmda-2",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Sacramento",
+      "incomeMonthly": 7667,
+      "loanAmount": 410000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.75
+    },
+    {
+      "id": "hmda-3",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Sacramento",
+      "incomeMonthly": 8750,
+      "loanAmount": 515000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.88
+    },
+    {
+      "id": "hmda-4",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Sacramento",
+      "incomeMonthly": 5333,
+      "loanAmount": 420000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.12
+    },
+    {
+      "id": "hmda-5",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Sacramento",
+      "incomeMonthly": 9833,
+      "loanAmount": 575000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.44
+    },
+    {
+      "id": "hmda-6",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Sacramento",
+      "incomeMonthly": 6917,
+      "loanAmount": 525000,
+      "approved": false,
+      "dti": 0.64,
+      "interestRate": 7.25
+    },
+    {
+      "id": "hmda-7",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Sacramento",
+      "incomeMonthly": 11000,
+      "loanAmount": 640000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.61
+    },
+    {
+      "id": "hmda-8",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Sacramento",
+      "incomeMonthly": 5917,
+      "loanAmount": 365000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.93
+    },
+    {
+      "id": "hmda-9",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Yolo",
+      "incomeMonthly": 6333,
+      "loanAmount": 355000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.58
+    },
+    {
+      "id": "hmda-10",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Yolo",
+      "incomeMonthly": 7583,
+      "loanAmount": 465000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.72
+    },
+    {
+      "id": "hmda-11",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Yolo",
+      "incomeMonthly": 5667,
+      "loanAmount": 430000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.18
+    },
+    {
+      "id": "hmda-12",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Yolo",
+      "incomeMonthly": 10333,
+      "loanAmount": 595000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.4
+    },
+    {
+      "id": "hmda-13",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Placer",
+      "incomeMonthly": 8000,
+      "loanAmount": 520000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.55
+    },
+    {
+      "id": "hmda-14",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Placer",
+      "incomeMonthly": 9583,
+      "loanAmount": 680000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.82
+    },
+    {
+      "id": "hmda-15",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Placer",
+      "incomeMonthly": 6833,
+      "loanAmount": 590000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.09
+    },
+    {
+      "id": "hmda-16",
+      "marketTags": [
+        "Sacramento"
+      ],
+      "county": "Placer",
+      "incomeMonthly": 12333,
+      "loanAmount": 760000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.48
+    },
+    {
+      "id": "hmda-17",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "Alameda",
+      "incomeMonthly": 10667,
+      "loanAmount": 775000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.63
+    },
+    {
+      "id": "hmda-18",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "Alameda",
+      "incomeMonthly": 13000,
+      "loanAmount": 930000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.78
+    },
+    {
+      "id": "hmda-19",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "Alameda",
+      "incomeMonthly": 8667,
+      "loanAmount": 820000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.16
+    },
+    {
+      "id": "hmda-20",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "Alameda",
+      "incomeMonthly": 15167,
+      "loanAmount": 1040000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.52
+    },
+    {
+      "id": "hmda-21",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "Alameda",
+      "incomeMonthly": 8083,
+      "loanAmount": 760000,
+      "approved": false,
+      "dti": 0.64,
+      "interestRate": 7.28
+    },
+    {
+      "id": "hmda-22",
+      "marketTags": [
+        "Sacramento",
+        "Alameda"
+      ],
+      "county": "Contra Costa",
+      "incomeMonthly": 9333,
+      "loanAmount": 660000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.7
+    },
+    {
+      "id": "hmda-23",
+      "marketTags": [
+        "Sacramento",
+        "Alameda"
+      ],
+      "county": "Contra Costa",
+      "incomeMonthly": 7583,
+      "loanAmount": 690000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.22
+    },
+    {
+      "id": "hmda-24",
+      "marketTags": [
+        "Sacramento",
+        "Alameda"
+      ],
+      "county": "Contra Costa",
+      "incomeMonthly": 12000,
+      "loanAmount": 785000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.49
+    },
+    {
+      "id": "hmda-25",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "Santa Clara",
+      "incomeMonthly": 13750,
+      "loanAmount": 1090000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.74
+    },
+    {
+      "id": "hmda-26",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "Santa Clara",
+      "incomeMonthly": 11500,
+      "loanAmount": 1160000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.08
+    },
+    {
+      "id": "hmda-27",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "Santa Clara",
+      "incomeMonthly": 17667,
+      "loanAmount": 1275000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.43
+    },
+    {
+      "id": "hmda-28",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "San Mateo",
+      "incomeMonthly": 14583,
+      "loanAmount": 1185000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.69
+    },
+    {
+      "id": "hmda-29",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "San Mateo",
+      "incomeMonthly": 12333,
+      "loanAmount": 1210000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.21
+    },
+    {
+      "id": "hmda-30",
+      "marketTags": [
+        "Alameda"
+      ],
+      "county": "San Mateo",
+      "incomeMonthly": 18833,
+      "loanAmount": 1340000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.39
+    },
+    {
+      "id": "hmda-31",
+      "marketTags": [
+        "San Diego"
+      ],
+      "county": "San Diego",
+      "incomeMonthly": 8833,
+      "loanAmount": 645000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.62
+    },
+    {
+      "id": "hmda-32",
+      "marketTags": [
+        "San Diego"
+      ],
+      "county": "San Diego",
+      "incomeMonthly": 10083,
+      "loanAmount": 760000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.85
+    },
+    {
+      "id": "hmda-33",
+      "marketTags": [
+        "San Diego"
+      ],
+      "county": "San Diego",
+      "incomeMonthly": 7417,
+      "loanAmount": 705000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.14
+    },
+    {
+      "id": "hmda-34",
+      "marketTags": [
+        "San Diego"
+      ],
+      "county": "San Diego",
+      "incomeMonthly": 12667,
+      "loanAmount": 850000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.47
+    },
+    {
+      "id": "hmda-35",
+      "marketTags": [
+        "San Diego"
+      ],
+      "county": "San Diego",
+      "incomeMonthly": 8167,
+      "loanAmount": 790000,
+      "approved": false,
+      "dti": 0.64,
+      "interestRate": 7.3
+    },
+    {
+      "id": "hmda-36",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Orange",
+      "incomeMonthly": 10667,
+      "loanAmount": 815000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.73
+    },
+    {
+      "id": "hmda-37",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Orange",
+      "incomeMonthly": 8750,
+      "loanAmount": 845000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.19
+    },
+    {
+      "id": "hmda-38",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Orange",
+      "incomeMonthly": 14000,
+      "loanAmount": 920000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.5
+    },
+    {
+      "id": "hmda-39",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Riverside",
+      "incomeMonthly": 6500,
+      "loanAmount": 455000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.9
+    },
+    {
+      "id": "hmda-40",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Riverside",
+      "incomeMonthly": 5583,
+      "loanAmount": 480000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.24
+    },
+    {
+      "id": "hmda-41",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Riverside",
+      "incomeMonthly": 8667,
+      "loanAmount": 530000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.66
+    },
+    {
+      "id": "hmda-42",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Los Angeles",
+      "incomeMonthly": 8667,
+      "loanAmount": 690000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.81
+    },
+    {
+      "id": "hmda-43",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Los Angeles",
+      "incomeMonthly": 7333,
+      "loanAmount": 720000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.2
+    },
+    {
+      "id": "hmda-44",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Los Angeles",
+      "incomeMonthly": 11833,
+      "loanAmount": 810000,
+      "approved": true,
+      "dti": 0.33,
+      "interestRate": 6.58
+    },
+    {
+      "id": "hmda-45",
+      "marketTags": [
+        "San Diego",
+        "Los Angeles"
+      ],
+      "county": "Los Angeles",
+      "incomeMonthly": 13750,
+      "loanAmount": 910000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.45
+    },
+    {
+      "id": "hmda-46",
+      "marketTags": [
+        "Los Angeles"
+      ],
+      "county": "Ventura",
+      "incomeMonthly": 9583,
+      "loanAmount": 720000,
+      "approved": true,
+      "dti": 0.43,
+      "interestRate": 6.78
+    },
+    {
+      "id": "hmda-47",
+      "marketTags": [
+        "Los Angeles"
+      ],
+      "county": "Ventura",
+      "incomeMonthly": 7833,
+      "loanAmount": 760000,
+      "approved": false,
+      "dti": 0.55,
+      "interestRate": 7.17
+    },
+    {
+      "id": "hmda-48",
+      "marketTags": [
+        "Los Angeles"
+      ],
+      "county": "Ventura",
+      "incomeMonthly": 12583,
+      "loanAmount": 840000,
+      "approved": true,
+      "dti": 0.25,
+      "interestRate": 6.53
+    }
+  ]
+}

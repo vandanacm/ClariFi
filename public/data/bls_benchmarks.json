@@ -1,0 +1,44 @@
+{
+  "source": {
+    "name": "BLS CE benchmark sample",
+    "note": "Prototype benchmark shaped around BLS Consumer Expenditure Survey categories. Replace with computed CE peer-group aggregates for the course build."
+  },
+  "peerGroup": {
+    "label": "Western U.S. households, upper-middle income",
+    "householdType": "2-person renter/owner transition",
+    "region": "West",
+    "annualIncome": 118000
+  },
+  "categories": [
+    {
+      "key": "housing",
+      "label": "Housing",
+      "monthlyPeer": 2850,
+      "targetShare": 0.3
+    },
+    {
+      "key": "food",
+      "label": "Food",
+      "monthlyPeer": 875,
+      "targetShare": 0.1
+    },
+    {
+      "key": "transport",
+      "label": "Transportation",
+      "monthlyPeer": 760,
+      "targetShare": 0.08
+    },
+    {
+      "key": "lifestyle",
+      "label": "Lifestyle",
+      "monthlyPeer": 940,
+      "targetShare": 0.1
+    },
+    {
+      "key": "savings",
+      "label": "Savings gap",
+      "monthlyPeer": 1450,
+      "targetShare": 0.14
+    }
+  ]
+}
