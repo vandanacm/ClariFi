@@ -1,0 +1,39 @@
+id,date,merchant,category,amount
+tx-001,2026-04-01,Employer Payroll,income,4700
+tx-002,2026-04-15,Employer Payroll,income,4700
+tx-003,2026-04-01,Apartment Rent,housing,-2200
+tx-004,2026-04-03,Whole Foods Market,food,-142
+tx-005,2026-04-06,Trader Joe's,food,-98
+tx-006,2026-04-09,Safeway,food,-76
+tx-007,2026-04-12,Chipotle,food,-18
+tx-008,2026-04-18,Panda Express,food,-22
+tx-009,2026-04-05,Chevron Gas,transport,-68
+tx-010,2026-04-12,Chevron Gas,transport,-71
+tx-011,2026-04-08,Clipper Card Transit,transport,-102
+tx-012,2026-04-06,Auto Loan Payment,debt,-480
+tx-013,2026-04-10,Netflix,lifestyle,-18
+tx-014,2026-04-10,Spotify,lifestyle,-11
+tx-015,2026-04-14,Amazon,lifestyle,-54
+tx-016,2026-04-17,Target,lifestyle,-89
+tx-017,2026-04-20,Gym Membership,lifestyle,-45
+tx-018,2026-04-22,Restaurant - Dinner,lifestyle,-67
+tx-019,2026-04-25,Coffee Shop,lifestyle,-28
+tx-020,2026-04-05,Vanguard Transfer,savings,-900
+tx-021,2026-05-01,Employer Payroll,income,4700
+tx-022,2026-05-15,Employer Payroll,income,4700
+tx-023,2026-05-01,Apartment Rent,housing,-2200
+tx-024,2026-05-03,Whole Foods Market,food,-155
+tx-025,2026-05-07,Trader Joe's,food,-88
+tx-026,2026-05-10,Safeway,food,-62
+tx-027,2026-05-13,Chipotle,food,-21
+tx-028,2026-05-04,Chevron Gas,transport,-74
+tx-029,2026-05-11,Chevron Gas,transport,-69
+tx-030,2026-05-09,Clipper Card Transit,transport,-102
+tx-031,2026-05-06,Auto Loan Payment,debt,-480
+tx-032,2026-05-10,Netflix,lifestyle,-18
+tx-033,2026-05-10,Spotify,lifestyle,-11
+tx-034,2026-05-15,Amazon,lifestyle,-112
+tx-035,2026-05-18,Target,lifestyle,-43
+tx-036,2026-05-20,Gym Membership,lifestyle,-45
+tx-037,2026-05-21,Restaurant - Dinner,lifestyle,-58
+tx-038,2026-05-05,Vanguard Transfer,savings,-900

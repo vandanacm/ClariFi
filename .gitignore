@@ -6,3 +6,6 @@ vite.config.js
 vite.config.d.ts
 data/clarifi_store.json
 public/data/model_outputs/
+.env
+CLAUDE.local.md
+.claude/settings.local.json

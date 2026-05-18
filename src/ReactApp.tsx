@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, Bot, Database, Home, Landmark, LogIn, Upload } from "lucide-react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { AlertTriangle, BarChart3, Bot, Database, Home, Landmark, LogIn, LogOut, Navigation, Upload, UserPlus } from "lucide-react";
 import { api } from "./api";
+import { AuthModal } from "./Login";
+import { Landing } from "./Landing";
+import { Onboarding } from "./Onboarding";
 import {
   BenchmarkBars,
   CalibrationChart,
   CashflowChart,
+  ChoroplethMap,
   ExpenseDonut,
-  HmdaScatter
+  HmdaScatter,
+  IncomeHistogram,
+  RiskSurface
 } from "./charts";
 import type { BenchmarkModel, FinanceSummary, HmdaModel, ModelReport, ScenarioInput, ScoreResult } from "./types";
 
@@ -74,7 +81,43 @@ function metricText(value?: number | null, formatter: (value: number) => string 
   return value === null || value === undefined ? "n/a" : formatter(value);
 }
 
+interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+}
+
+function hintsFromFinance(summary: FinanceSummary): Partial<ScenarioInput> {
+  if (summary.transactionCount === 0) return {};
+  const totals = summary.categoryTotals;
+  const hints: Partial<ScenarioInput> = {};
+
+  const income = summary.monthlyIncomeObserved;
+  if (income > 0) hints.income = Math.round(income);
+
+  const debt = Math.abs(totals["debt"] ?? 0);
+  if (debt > 0) hints.debt = Math.round(debt);
+
+  const food = Math.abs(totals["food"] ?? 0);
+  const transport = Math.abs(totals["transport"] ?? totals["transportation"] ?? 0);
+  const lifestyle = Math.abs(totals["lifestyle"] ?? totals["entertainment"] ?? totals["shopping"] ?? 0);
+  const investing = Math.abs(totals["savings"] ?? totals["investing"] ?? totals["investment"] ?? 0);
+
+  if (food > 0 || transport > 0 || lifestyle > 0 || investing > 0) {
+    hints.expenses = {
+      food: food || 900,
+      transport: transport || 525,
+      lifestyle: lifestyle || 850,
+      investing: investing || 1100
+    };
+  }
+  return hints;
+}
+
 function App() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
   const [activeSection, setActiveSection] = useState("readiness");
   const [scenario, setScenario] = useState<ScenarioInput>(initialScenario);
   const [score, setScore] = useState<ScoreResult>(fallbackScore);
@@ -83,30 +126,64 @@ function App() {
   const [model, setModel] = useState<ModelReport | null>(null);
   const [financeSummary, setFinanceSummary] = useState<FinanceSummary | null>(null);
   const [agentAnswer, setAgentAnswer] = useState("Ask ClariFi to explain the current mortgage-readiness tradeoff.");
+  const [agentHighlight, setAgentHighlight] = useState<string | null>(null);
+  const [agentMode, setAgentMode] = useState("local AI");
+  const [agentQuestion, setAgentQuestion] = useState("");
+  const [agentLoading, setAgentLoading] = useState(false);
   const [apiOnline, setApiOnline] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("Upload CSV");
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(!!api.getToken());
+  const [showAuth, setShowAuth] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
 
   useEffect(() => {
     let ignore = false;
 
     async function load() {
       try {
-        const [health, hmdaData, benchmarkData, modelData, financeData] = await Promise.all([
+        const calls: Promise<unknown>[] = [
           api.health(),
           api.hmda(),
           api.benchmarks(),
           api.model(),
           api.financeSummary()
-        ]);
+        ];
+        if (api.getToken()) {
+          calls.push(api.me().catch(() => { api.clearToken(); return null; }));
+        }
+        const [health, hmdaData, benchmarkData, modelData, financeData, meData] = await Promise.all(calls) as [
+          Awaited<ReturnType<typeof api.health>>,
+          HmdaModel,
+          BenchmarkModel,
+          ModelReport,
+          FinanceSummary,
+          { user: AuthUser } | null | undefined
+        ];
         if (ignore) return;
         setApiOnline(health.ok);
         setHmda(hmdaData);
         setBenchmarks(benchmarkData);
         setModel(modelData);
         setFinanceSummary(financeData);
+        if (meData?.user) {
+          setAuthUser(meData.user);
+          // Apply real spending data to scenario for returning authenticated users
+          const hints = hintsFromFinance(financeData);
+          if (Object.keys(hints).length > 0) {
+            setScenario(current => ({
+              ...current,
+              ...hints,
+              expenses: hints.expenses ?? current.expenses
+            }));
+          }
+        }
+        setAuthLoading(false);
       } catch (error) {
         console.warn(error);
         setApiOnline(false);
+        setAuthLoading(false);
       }
     }
 
@@ -138,6 +215,15 @@ function App() {
     };
   }, [scenario]);
 
+  // Reset to hardcoded demo values whenever entering /demo so it's always clean
+  useEffect(() => {
+    if (pathname === "/demo") {
+      setScenario(initialScenario);
+      setFinanceSummary(null);
+      setUploadStatus("Upload CSV");
+    }
+  }, [pathname]);
+
   const userBenchmarkValues = useMemo(() => ({
     housing: score.monthlyHousing,
     food: scenario.expenses.food,
@@ -168,14 +254,73 @@ function App() {
     }));
   }
 
-  async function askAgent() {
+  async function onAuthSuccess(user: AuthUser) {
+    setAuthUser(user);
+    setShowAuth(false);
+    navigate("/dashboard");
     try {
-      const result = await api.explain("What should I focus on in this scenario?", scenario);
+      const financeData = await api.financeSummary();
+      setFinanceSummary(financeData);
+      if (financeData.transactionCount === 0) {
+        setShowOnboarding(true);
+      } else {
+        // User has real transaction data — update scenario sliders to match
+        const hints = hintsFromFinance(financeData);
+        if (Object.keys(hints).length > 0) {
+          setScenario(current => ({
+            ...current,
+            ...hints,
+            expenses: hints.expenses ?? current.expenses
+          }));
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  function onOnboardingComplete(summary: import("./types").FinanceSummary | null, hints: Partial<import("./types").ScenarioInput>) {
+    setShowOnboarding(false);
+    if (summary) setFinanceSummary(summary);
+    if (Object.keys(hints).length > 0) {
+      setScenario(current => ({
+        ...current,
+        ...hints,
+        expenses: hints.expenses ?? current.expenses
+      }));
+    }
+  }
+
+  function logout() {
+    api.clearToken();
+    setAuthUser(null);
+    setFinanceSummary(null);
+    navigate("/");
+  }
+
+  async function askAgent(question = "What should I focus on to improve my mortgage readiness?") {
+    setAgentLoading(true);
+    try {
+      const result = await api.explain(question, scenario);
       setAgentAnswer(result.answer);
+      setAgentMode(result.agentMode ?? "local AI");
+      if (result.highlight) {
+        triggerHighlight(result.highlight);
+      }
     } catch (error) {
       console.warn(error);
-      setAgentAnswer("The API is offline, so ClariFi is using the local dashboard signals for now.");
+      setAgentAnswer("The API is offline — ClariFi is using local dashboard signals for now.");
+      setAgentMode("offline");
+    } finally {
+      setAgentLoading(false);
     }
+  }
+
+  function triggerHighlight(section: string) {
+    setAgentHighlight(section);
+    // Scroll to the highlighted section
+    const el = document.querySelector(`[data-section="${section}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Remove highlight class after animation completes
+    setTimeout(() => setAgentHighlight(null), 3000);
   }
 
   async function uploadTransactions(file?: File) {
@@ -184,6 +329,15 @@ function App() {
     try {
       const result = await api.uploadTransactions(file);
       setFinanceSummary(result.summary);
+      // Immediately update scenario sliders so metrics refresh without a manual page reload
+      const hints = hintsFromFinance(result.summary);
+      if (Object.keys(hints).length > 0) {
+        setScenario(current => ({
+          ...current,
+          ...hints,
+          expenses: hints.expenses ?? current.expenses
+        }));
+      }
       setUploadStatus(`${result.imported} rows imported`);
     } catch (error) {
       console.warn(error);
@@ -198,7 +352,31 @@ function App() {
     { id: "model", label: "Model", icon: Database }
   ];
 
+  // Route: / — landing page (redirect to dashboard if already authenticated)
+  if (pathname === "/" || pathname === "") {
+    if (authLoading) return null;
+    if (authUser) return <Navigate to="/dashboard" replace />;
+    return (
+      <>
+        {showAuth && <AuthModal onSuccess={onAuthSuccess} onClose={() => setShowAuth(false)} />}
+        <Landing onSignIn={() => setShowAuth(true)} onDemo={() => navigate("/demo")} />
+      </>
+    );
+  }
+
+  // Route: /dashboard — requires authentication
+  if (pathname === "/dashboard") {
+    if (authLoading) return null;
+    if (!authUser) return <Navigate to="/" replace />;
+  }
+
+  // /demo or /dashboard: render the dashboard shell
+  const isDemo = pathname === "/demo";
+
   return (
+    <>
+    {showAuth && <AuthModal onSuccess={onAuthSuccess} onClose={() => setShowAuth(false)} />}
+    {showOnboarding && authUser && <Onboarding userName={authUser.name} onComplete={onOnboardingComplete} />}
     <div className="app-shell">
       <aside className="sidebar" aria-label="Primary navigation">
         <div className="brand-mark">
@@ -231,9 +409,9 @@ function App() {
 
         <div className="profile-strip">
           <span className="profile-dot" />
-          <div>
-            <p className="profile-name">Demo Household</p>
-            <p className="profile-meta">{scenario.market}, CA</p>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p className="profile-name">{authUser?.name ?? "Demo Household"}</p>
+            <p className="profile-meta">{authUser?.email ?? `${scenario.market}, CA`}</p>
           </div>
         </div>
       </aside>
@@ -245,9 +423,31 @@ function App() {
             <h1>Can this household stay resilient and buy in its target market?</h1>
           </div>
           <div className="header-actions">
-            <span className={`status-pill backend-status ${apiOnline ? "" : "alt"}`}>
-              {apiOnline ? "FastAPI connected" : "Static fallback"}
-            </span>
+            <div className="header-top-row">
+              <span className={`status-pill backend-status ${apiOnline ? "" : "alt"}`}>
+                {apiOnline ? "FastAPI connected" : "Static fallback"}
+              </span>
+              <div className="header-controls">
+                {authUser ? (
+                  <>
+                    <label className="header-action-btn" title="Upload new transaction CSV">
+                      <Upload size={14} />
+                      <span>{uploadStatus}</span>
+                      <input type="file" accept=".csv" onChange={event => uploadTransactions(event.target.files?.[0])} />
+                    </label>
+                    <button className="header-action-btn" type="button" onClick={logout} title={`Sign out ${authUser.name}`}>
+                      <LogOut size={14} />
+                      <span>Sign out</span>
+                    </button>
+                  </>
+                ) : (
+                  <button className="header-signup-btn" type="button" onClick={() => setShowAuth(true)}>
+                    <UserPlus size={15} />
+                    Sign up free
+                  </button>
+                )}
+              </div>
+            </div>
             <label className="select-label" htmlFor="marketSelect">Target market</label>
             <select
               id="marketSelect"
@@ -260,7 +460,17 @@ function App() {
           </div>
         </header>
 
-        <section className="score-band app-section" data-section="readiness" aria-label="Readiness summary">
+        {isDemo && (
+          <div className="demo-banner">
+            <span className="demo-banner-badge">Demo</span>
+            <span>You're viewing sample data. Sign in to connect real transactions and save your scenarios.</span>
+            <button className="demo-banner-btn" type="button" onClick={() => setShowAuth(true)}>
+              Sign in / Register →
+            </button>
+          </div>
+        )}
+
+        <section className={`score-band app-section${agentHighlight === "readiness" ? " section-highlighted" : ""}`} data-section="readiness" aria-label="Readiness summary">
           <div className="score-panel">
             <div className="score-ring" aria-label="Mortgage readiness score">
               <svg viewBox="0 0 140 140" role="img">
@@ -309,7 +519,7 @@ function App() {
           </div>
         </section>
 
-        <section className="finance-strip app-section" data-section="finances" aria-label="Personal finance controls">
+        <section className={`finance-strip app-section${agentHighlight === "finances" ? " section-highlighted" : ""}`} data-section="finances" aria-label="Personal finance controls">
           <article className="finance-card cashflow-card">
             <div className="panel-header">
               <div>
@@ -337,17 +547,35 @@ function App() {
               <ExpenseDonut scenario={scenario} score={score} />
               <div className="mini-slider-stack">
                 {(["food", "transport", "lifestyle", "investing"] as const).map(key => (
-                  <label className="mini-range-row" key={key}>
-                    <span>{key} <strong>{money.format(scenario.expenses[key])}</strong></span>
+                  <div className="mini-range-row" key={key}>
+                    <div className="range-header">
+                      <span className="range-label-text" style={{ textTransform: "capitalize" }}>{key}</span>
+                      <label className="value-input-wrap">
+                        <span className="value-currency">$</span>
+                        <input
+                          className="value-input"
+                          type="number"
+                          defaultValue={scenario.expenses[key]}
+                          key={`exp-${key}-${scenario.expenses[key]}`}
+                          min={0}
+                          onBlur={e => {
+                            const v = Number(e.target.value);
+                            if (!isNaN(v) && v >= 0) updateExpense(key, v);
+                          }}
+                          onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                          style={{ width: 60 }}
+                        />
+                      </label>
+                    </div>
                     <input
                       type="range"
-                      min={key === "investing" ? 0 : 100}
-                      max={key === "investing" ? 3200 : 2200}
+                      min={0}
+                      max={key === "investing" ? 5000 : 3000}
                       step={25}
                       value={scenario.expenses[key]}
                       onChange={event => updateExpense(key, Number(event.target.value))}
                     />
-                  </label>
+                  </div>
                 ))}
               </div>
             </div>
@@ -355,31 +583,6 @@ function App() {
         </section>
 
         <section className="workspace-grid">
-          <article className="analysis-panel agent-panel">
-            <div className="panel-header">
-              <div>
-                <p className="panel-kicker">Explainer agent</p>
-                <h2>Ask ClariFi</h2>
-              </div>
-              <button className="icon-action" type="button" title="Ask the agent" onClick={askAgent}>
-                <Bot size={17} />
-              </button>
-            </div>
-            <div className="agent-summary">
-              <span>Current guidance</span>
-              <strong>{agentAnswer}</strong>
-            </div>
-            <div className="agent-list">
-              {score.drivers.map(driver => (
-                <article className="agent-card" key={driver.label}>
-                  <span>{driver.direction === "positive" ? "Strength" : "Risk"}</span>
-                  <strong>{driver.label}</strong>
-                  <small>{typeof driver.value === "number" ? compact.format(driver.value) : driver.value}</small>
-                </article>
-              ))}
-            </div>
-          </article>
-
           <article className="analysis-panel benchmark-panel">
             <div className="panel-header">
               <div>
@@ -410,13 +613,31 @@ function App() {
             </div>
             <div className="slider-stack">
               {[
-                ["income", "Monthly income", 4500, 18000, 100],
-                ["debt", "Monthly debt", 0, 4200, 50],
-                ["savings", "Current savings", 10000, 220000, 1000],
-                ["price", "Target home price", 320000, 1200000, 5000]
+                ["income", "Monthly income", 0, 30000, 100],
+                ["debt", "Monthly debt", 0, 8000, 50],
+                ["savings", "Current savings", 0, 500000, 1000],
+                ["price", "Target home price", 100000, 2000000, 5000]
               ].map(([key, label, min, max, step]) => (
-                <label className="range-row" key={key}>
-                  <span>{label}<strong>{money.format(scenario[key as keyof ScenarioInput] as number)}</strong></span>
+                <div className="range-row" key={key as string}>
+                  <div className="range-header">
+                    <span className="range-label-text">{label as string}</span>
+                    <label className="value-input-wrap">
+                      <span className="value-currency">$</span>
+                      <input
+                        className="value-input"
+                        type="number"
+                        defaultValue={scenario[key as keyof ScenarioInput] as number}
+                        key={`si-${key}-${scenario[key as keyof ScenarioInput]}`}
+                        min={min as number}
+                        max={max as number}
+                        onBlur={e => {
+                          const v = Number(e.target.value);
+                          if (!isNaN(v) && v >= 0) updateNumericScenario(key as "income" | "debt" | "savings" | "price", Math.max(min as number, Math.min(max as number, v)));
+                        }}
+                        onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                      />
+                    </label>
+                  </div>
                   <input
                     type="range"
                     min={min as number}
@@ -425,50 +646,47 @@ function App() {
                     value={scenario[key as keyof ScenarioInput] as number}
                     onChange={event => updateNumericScenario(key as "income" | "debt" | "savings" | "price", Number(event.target.value))}
                   />
-                </label>
+                </div>
               ))}
             </div>
-            <label className="upload-button">
-              <Upload size={16} />
-              <span>{uploadStatus}</span>
-              <input type="file" accept=".csv" onChange={event => uploadTransactions(event.target.files?.[0])} />
-            </label>
           </article>
         </section>
 
-        <section className="hmda-grid app-section" data-section="hmda" aria-label="HMDA comparison">
-          <article className="analysis-panel wide-panel">
+        <section className={`hmda-grid app-section${agentHighlight === "hmda" ? " section-highlighted" : ""}`} data-section="hmda" aria-label="HMDA comparison">
+          <article className="analysis-panel">
             <div className="panel-header">
               <div>
-                <p className="panel-kicker">HMDA borrower comparison</p>
-                <h2>Income and loan amount context</h2>
+                <p className="panel-kicker">California county readiness</p>
+                <h2>Approval likelihood by county</h2>
               </div>
               <span className="status-pill muted">{hmda?.source.name ?? "Loading HMDA"}</span>
             </div>
-            {hmda && <HmdaScatter hmda={hmda} scenario={scenario} />}
+            {hmda && <ChoroplethMap hmda={hmda} scenario={scenario} />}
           </article>
 
           <article className="analysis-panel">
             <div className="panel-header">
               <div>
-                <p className="panel-kicker">County readiness</p>
-                <h2>{scenario.market} peers</h2>
+                <p className="panel-kicker">HMDA borrower comparison</p>
+                <h2>Income vs. loan — {scenario.market}</h2>
               </div>
               <span className="status-pill">{market ? money.format(market.priceMedian) : "n/a"} median</span>
             </div>
-            <div className="county-map">
-              {(market?.counties ?? []).map(county => (
-                <button className="county-cell" type="button" key={county.name}>
-                  <strong>{county.name}</strong>
-                  <span>{county.readiness}/100</span>
-                  <small>{percent.format(county.approvalRate ?? 0)} approved · {county.applications ?? 0} apps</small>
-                </button>
-              ))}
+            {hmda && <HmdaScatter hmda={hmda} scenario={scenario} />}
+          </article>
+
+          <article className="analysis-panel wide-panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Income distribution</p>
+                <h2>Approved vs. denied applicants — {scenario.market}</h2>
+              </div>
             </div>
+            {hmda && <IncomeHistogram hmda={hmda} scenario={scenario} />}
           </article>
         </section>
 
-        <section className="model-grid app-section" data-section="model" aria-label="Model audit">
+        <section className={`model-grid app-section${agentHighlight === "model" ? " section-highlighted" : ""}`} data-section="model" aria-label="Model audit">
           <article className="analysis-panel">
             <div className="panel-header">
               <div>
@@ -518,15 +736,133 @@ function App() {
             </div>
             {model && <CalibrationChart report={model} />}
           </article>
+
+          <article className="analysis-panel wide-panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Risk surface</p>
+                <h2>Approval likelihood across DTI and down payment</h2>
+              </div>
+              <span className="status-pill muted">Your position circled</span>
+            </div>
+            <RiskSurface score={score} />
+          </article>
         </section>
 
-        <section className="integration-strip">
-          <LogIn size={17} />
-          <strong>Next backend mode:</strong>
-          <span>Add MongoDB Atlas URI and copy the Colab `.joblib` files into `public/data/model_outputs` for live XGBoost inference.</span>
+        <section className="bias-disclaimer" aria-label="Model fairness and limitations">
+          <div className="bias-disclaimer-inner">
+            <p className="panel-kicker">Fairness &amp; limitations</p>
+            <h2>Important: about this model</h2>
+            <div className="bias-grid">
+              <div className="bias-item">
+                <strong>Historical bias</strong>
+                <p>This model is trained on 2025 California HMDA loan records, which reflect historical lending decisions that may have been influenced by systemic discrimination. Approval likelihood estimates inherit those patterns.</p>
+              </div>
+              <div className="bias-item">
+                <strong>Not a lending decision</strong>
+                <p>The readiness score and approval likelihood are statistical estimates for educational purposes only — not a credit decision, prequalification, or legal advice. Contact a HUD-approved housing counselor for guidance.</p>
+              </div>
+              <div className="bias-item">
+                <strong>Protected attributes excluded</strong>
+                <p>Race, ethnicity, sex, and age are excluded from the scoring model. County-level approval patterns visible in the HMDA view may still reflect geographic disparities in historical lending.</p>
+              </div>
+              <div className="bias-item">
+                <strong>Model uncertainty</strong>
+                <p>Calibration is tuned to real approval rates, but the 60,000-row California sample may not represent all subgroups equally. Check the calibration chart for confidence in the predicted–actual alignment.</p>
+              </div>
+            </div>
+          </div>
         </section>
+
+        <div className={`agent-float${agentOpen ? " open" : ""}`}>
+          <button
+            className={`agent-float-toggle${agentLoading ? " busy" : ""}`}
+            type="button"
+            onClick={() => setAgentOpen(o => !o)}
+            title="Ask ClariFi"
+          >
+            <Bot size={22} />
+          </button>
+          {agentOpen && (
+            <div className="agent-float-panel">
+              <div className="agent-float-header">
+                <div>
+                  <p className="panel-kicker">Explainer · {agentLoading ? "Thinking…" : agentMode}</p>
+                  <h2>Ask ClariFi</h2>
+                </div>
+                <button className="agent-float-close" type="button" onClick={() => setAgentOpen(false)}>✕</button>
+              </div>
+              <div className="agent-float-body">
+                <form
+                  className="agent-input-row"
+                  onSubmit={e => { e.preventDefault(); askAgent(agentQuestion || undefined); }}
+                >
+                  <input
+                    className="agent-input"
+                    type="text"
+                    placeholder="Ask anything about your scenario…"
+                    value={agentQuestion}
+                    onChange={e => setAgentQuestion(e.target.value)}
+                    disabled={agentLoading}
+                  />
+                  <button className="agent-send" type="submit" disabled={agentLoading || !agentQuestion.trim()}>
+                    {agentLoading ? "…" : "Ask"}
+                  </button>
+                </form>
+                <div className="agent-summary">
+                  <span>Current guidance</span>
+                  <strong>{agentAnswer}</strong>
+                  {agentHighlight && (
+                    <button
+                      className="agent-highlight-btn"
+                      type="button"
+                      onClick={() => triggerHighlight(agentHighlight)}
+                    >
+                      <Navigation size={13} />
+                      Jump to {agentHighlight} view
+                    </button>
+                  )}
+                </div>
+                {score.counterfactual && (
+                  <div className="counterfactual-card">
+                    <p className="panel-kicker">Top improvement</p>
+                    <strong>{score.counterfactual.suggestion}</strong>
+                    <span className="cf-delta">
+                      Approval +{percent.format(score.counterfactual.delta)} → {percent.format(score.counterfactual.newApproval)}
+                    </span>
+                  </div>
+                )}
+                <div className="local-shap-list">
+                  <p className="panel-kicker" style={{ marginBottom: 6 }}>Local factor impact</p>
+                  {(score.localShap ?? score.drivers.map(d => ({
+                    feature: d.label,
+                    label: d.label,
+                    value: d.value,
+                    ideal: 0,
+                    impact: d.direction === "positive" ? 0.05 : -0.05,
+                    direction: d.direction
+                  }))).map(insight => (
+                    <div className="shap-row" key={insight.feature}>
+                      <span className="shap-label">{insight.label}</span>
+                      <div className="shap-bar-track">
+                        <div
+                          className={`shap-bar-fill ${insight.direction}`}
+                          style={{ width: `${Math.min(Math.abs(insight.impact) * 400, 100)}%` }}
+                        />
+                      </div>
+                      <span className={`shap-value ${insight.direction}`}>
+                        {insight.impact > 0 ? "+" : ""}{(insight.impact * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
+    </>
   );
 }
 

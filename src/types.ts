@@ -14,6 +14,24 @@ export type ScenarioInput = {
   expenses: ExpenseMap;
 };
 
+export type LocalInsight = {
+  feature: string;
+  label: string;
+  value: number;
+  ideal: number;
+  impact: number;
+  direction: "positive" | "negative";
+};
+
+export type Counterfactual = {
+  feature: string;
+  suggestion: string;
+  change: number;
+  newApproval: number;
+  newScore: number;
+  delta: number;
+};
+
 export type ScoreResult = {
   mode: string;
   score: number;
@@ -28,6 +46,8 @@ export type ScoreResult = {
     value: number;
     direction: "positive" | "negative";
   }>;
+  localShap?: LocalInsight[];
+  counterfactual?: Counterfactual;
 };
 
 export type BenchmarkCategory = {

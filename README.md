@@ -2,6 +2,37 @@
 
 ClariFi is an AI-guided personal finance and mortgage readiness analytics system for U.S. households. It helps users understand how income, savings, expenses, and debt translate into financial resilience and home-buying readiness, then compares that profile against BLS-style household spending benchmarks and HMDA-style mortgage applicant patterns.
 
+## Authentication
+
+ClariFi supports optional user accounts. Without logging in, the app runs in demo mode under a shared "Demo Household" profile. Registering or logging in gives each user their own persisted transactions, scenarios, and agent messages.
+
+### Sign up
+
+1. Click the sign-in icon in the bottom-left profile strip, or the **Sign in / Register** button at the bottom of the dashboard.
+2. Switch to the **Create account** tab, enter an email, name, and password (min 6 characters), and submit.
+3. The app stores the returned JWT in `localStorage` under the key `clarifi_token` and immediately shows your name in the sidebar.
+
+### Sign in
+
+1. Open the same modal and use the **Sign in** tab.
+2. Enter your email and password. On success the token is stored and your data loads automatically.
+
+### Sign out
+
+Click the sign-out icon next to your name in the sidebar profile strip, or the **Sign out** button at the bottom of the dashboard. This removes the token from `localStorage` and returns to demo mode.
+
+### Where tokens are stored
+
+Tokens are stored in `localStorage` (`clarifi_token`). For production deployments prefer `httpOnly` secure cookies and add rate limiting, password reset, and email verification.
+
+### API endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/auth/register` | Create account → returns `{ token, user }` |
+| POST | `/api/auth/login` | Sign in → returns `{ token, user }` |
+| GET | `/api/me` | Returns current user (requires `Authorization: Bearer <token>`) |
+
 ## Current Prototype
 
 The current version is a full-stack visual analytics prototype with:

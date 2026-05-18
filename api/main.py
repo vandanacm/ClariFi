@@ -11,6 +11,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:
+    import anthropic as _anthropic
+except Exception:  # pragma: no cover
+    _anthropic = None  # type: ignore
+
+import httpx
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
+VALID_HIGHLIGHTS = {"readiness", "finances", "hmda", "model"}
+
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -27,10 +45,12 @@ try:
 except Exception:  # pragma: no cover - optional until API deps are installed
     MongoClient = None
 
+# Global Mongo client instance created on startup when MONGODB_URI is set
+MONGO_CLIENT = None
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DATA = PROJECT_ROOT / "public" / "data"
-STORE_PATH = PROJECT_ROOT / "data" / "clarifi_store.json"
 MODEL_PATH = PUBLIC_DATA / "model_outputs" / "hmda_2025_xgboost_calibrated_pipeline.joblib"
 MONGODB_URI = os.getenv("MONGODB_URI")
 MONGODB_DB = os.getenv("MONGODB_DB", "clarifi")
@@ -49,6 +69,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def startup_mongo_client() -> None:
+    """Initialize a shared MongoClient if `MONGODB_URI` is set and pymongo is available."""
+    global MONGO_CLIENT
+    if MONGODB_URI and MongoClient is not None:
+        MONGO_CLIENT = MongoClient(MONGODB_URI)
+
+
+@app.on_event("shutdown")
+def shutdown_mongo_client() -> None:
+    """Close the shared MongoClient on shutdown."""
+    global MONGO_CLIENT
+    if MONGO_CLIENT is not None:
+        try:
+            MONGO_CLIENT.close()
+        finally:
+            MONGO_CLIENT = None
 
 
 def utc_now() -> str:
@@ -71,31 +110,23 @@ def initial_store() -> dict[str, Any]:
 
 
 def load_store() -> dict[str, Any]:
-    if MONGODB_URI and MongoClient is not None:
-        collection = MongoClient(MONGODB_URI)[MONGODB_DB][MONGODB_COLLECTION]
-        doc = collection.find_one({"_id": "clarifi_store"})
-        if not doc:
-            store = initial_store()
-            collection.replace_one({"_id": "clarifi_store"}, {"_id": "clarifi_store", **store}, upsert=True)
-            return store
-        doc.pop("_id", None)
-        return doc
-
-    if not STORE_PATH.exists():
-        STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        save_store(initial_store())
-    return read_json(STORE_PATH)
+    if MONGO_CLIENT is None:
+        raise RuntimeError("MONGODB_URI is not configured. Set it in your .env file.")
+    collection = MONGO_CLIENT[MONGODB_DB][MONGODB_COLLECTION]
+    doc = collection.find_one({"_id": "clarifi_store"})
+    if not doc:
+        store = initial_store()
+        collection.replace_one({"_id": "clarifi_store"}, {"_id": "clarifi_store", **store}, upsert=True)
+        return store
+    doc.pop("_id", None)
+    return doc
 
 
 def save_store(store: dict[str, Any]) -> None:
-    if MONGODB_URI and MongoClient is not None:
-        collection = MongoClient(MONGODB_URI)[MONGODB_DB][MONGODB_COLLECTION]
-        collection.replace_one({"_id": "clarifi_store"}, {"_id": "clarifi_store", **store}, upsert=True)
-        return
-
-    STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with STORE_PATH.open("w", encoding="utf-8") as handle:
-        json.dump(store, handle, indent=2)
+    if MONGO_CLIENT is None:
+        raise RuntimeError("MONGODB_URI is not configured. Set it in your .env file.")
+    collection = MONGO_CLIENT[MONGODB_DB][MONGODB_COLLECTION]
+    collection.replace_one({"_id": "clarifi_store"}, {"_id": "clarifi_store", **store}, upsert=True)
 
 
 def hash_password(password: str) -> str:
@@ -265,6 +296,138 @@ def scenario_features(scenario: ScenarioInput) -> dict[str, Any]:
     }
 
 
+def _approval_from_factors(dti: float, down_payment: float, surplus: float = 1000.0) -> float:
+    score = min(max(34 + down_payment * 118 + (1 - abs(dti - 0.32)) * 26 - max(dti - 0.36, 0) * 360 + surplus / 1800, 18), 96)
+    return min(max(0.52 + (score - 60) / 130, 0.08), 0.97)
+
+
+def _local_shap(scenario: ScenarioInput, features: dict[str, Any], approval: float) -> list[dict[str, Any]]:
+    """Compute per-feature local SHAP-style impact relative to a neutral baseline."""
+    monthly_housing = (scenario.price - scenario.savings) * 0.0062
+    flexible = sum(scenario.expenses.values())
+    surplus = scenario.income - scenario.debt - monthly_housing - flexible
+    dti = features["dti_numeric"] / 100
+    down_payment = features["down_payment_rate_proxy"]
+
+    # Neutral baseline: DTI=0.36, down_payment=0.20, surplus=$1000
+    base = _approval_from_factors(0.36, 0.20, 1000)
+
+    def _delta(dti_: float, dp_: float, sur_: float) -> float:
+        return round(_approval_from_factors(dti_, dp_, sur_) - base, 3)
+
+    insights = [
+        {
+            "feature": "dti",
+            "label": "Debt-to-income ratio",
+            "value": round(dti, 3),
+            "ideal": 0.36,
+            "impact": _delta(dti, 0.20, 1000),
+            "direction": "negative" if dti > 0.38 else "positive",
+        },
+        {
+            "feature": "down_payment",
+            "label": "Down payment rate",
+            "value": round(down_payment, 3),
+            "ideal": 0.20,
+            "impact": _delta(0.36, down_payment, 1000),
+            "direction": "positive" if down_payment >= 0.18 else "negative",
+        },
+        {
+            "feature": "surplus",
+            "label": "Monthly surplus",
+            "value": round(surplus),
+            "ideal": 800,
+            "impact": _delta(0.36, 0.20, surplus),
+            "direction": "positive" if surplus >= 0 else "negative",
+        },
+        {
+            "feature": "income_vs_county",
+            "label": "Income vs. county median",
+            "value": round(features["income_vs_county_median"], 3),
+            "ideal": 1.0,
+            "impact": round((features["income_vs_county_median"] - 1.0) * 0.04, 3),
+            "direction": "positive" if features["income_vs_county_median"] >= 0.9 else "negative",
+        },
+        {
+            "feature": "ltv",
+            "label": "Loan-to-value ratio",
+            "value": round(features["combined_loan_to_value_ratio"] / 100, 3),
+            "ideal": 0.80,
+            "impact": _delta(0.36, 1.0 - features["combined_loan_to_value_ratio"] / 100, 1000),
+            "direction": "negative" if features["combined_loan_to_value_ratio"] > 90 else "positive",
+        },
+    ]
+    # Sort by absolute impact descending
+    insights.sort(key=lambda x: abs(x["impact"]), reverse=True)
+    return insights
+
+
+def _counterfactual(scenario: ScenarioInput, features: dict[str, Any], current_approval: float) -> dict[str, Any]:
+    """Find the single most impactful feasible change to suggest."""
+    monthly_housing = (scenario.price - scenario.savings) * 0.0062
+    flexible = sum(scenario.expenses.values())
+    surplus = scenario.income - scenario.debt - monthly_housing - flexible
+    dti = features["dti_numeric"] / 100
+    down_payment = features["down_payment_rate_proxy"]
+
+    candidates: list[dict[str, Any]] = []
+
+    # Option 1: reduce debt to bring DTI to 0.36
+    target_debt_payment = scenario.income * 0.36 - monthly_housing
+    debt_reduction = scenario.debt - max(target_debt_payment, 0)
+    if debt_reduction > 50:
+        new_dti = (max(target_debt_payment, 0) + monthly_housing) / max(scenario.income, 1)
+        new_approval = _approval_from_factors(new_dti, down_payment, surplus + debt_reduction)
+        candidates.append({
+            "feature": "debt",
+            "suggestion": f"Reduce monthly debt by {money_fmt(debt_reduction)} to bring DTI to 36%",
+            "change": -round(debt_reduction),
+            "newApproval": round(new_approval, 3),
+            "delta": round(new_approval - current_approval, 3),
+        })
+
+    # Option 2: increase savings to 20% down payment
+    target_savings = scenario.price * 0.20
+    savings_gap = target_savings - scenario.savings
+    if savings_gap > 1000:
+        new_dp = target_savings / max(scenario.price, 1)
+        new_monthly_housing = (scenario.price - target_savings) * 0.0062
+        new_surplus = scenario.income - scenario.debt - new_monthly_housing - flexible
+        new_approval = _approval_from_factors(dti, new_dp, new_surplus)
+        candidates.append({
+            "feature": "savings",
+            "suggestion": f"Save {money_fmt(savings_gap)} more to reach 20% down payment",
+            "change": round(savings_gap),
+            "newApproval": round(new_approval, 3),
+            "delta": round(new_approval - current_approval, 3),
+        })
+
+    # Option 3: lower target price by 10%
+    new_price = scenario.price * 0.90
+    new_dp_rate = scenario.savings / max(new_price, 1)
+    new_mh = (new_price - scenario.savings) * 0.0062
+    new_dti_p = (scenario.debt + new_mh) / max(scenario.income, 1)
+    new_sur_p = scenario.income - scenario.debt - new_mh - flexible
+    new_approval_p = _approval_from_factors(new_dti_p, new_dp_rate, new_sur_p)
+    candidates.append({
+        "feature": "price",
+        "suggestion": f"Reduce target price by 10% to {money_fmt(new_price)}",
+        "change": -round(scenario.price * 0.10),
+        "newApproval": round(new_approval_p, 3),
+        "delta": round(new_approval_p - current_approval, 3),
+    })
+
+    # Pick candidate with highest delta
+    candidates.sort(key=lambda x: x["delta"], reverse=True)
+    best = candidates[0]
+    best["newScore"] = round(min(max(0.52 + (best["newApproval"] * 130) + 60 - 130 * 0.52, 18), 96))
+    return best
+
+
+def money_fmt(value: float) -> str:
+    return f"${value:,.0f}"
+
+
 def heuristic_score(scenario: ScenarioInput) -> dict[str, Any]:
     features = scenario_features(scenario)
     monthly_housing = (scenario.price - scenario.savings) * 0.0062
@@ -286,7 +449,9 @@ def heuristic_score(scenario: ScenarioInput) -> dict[str, Any]:
             {"label": "Down payment", "value": down_payment, "direction": "positive"},
             {"label": "Debt-to-income", "value": dti, "direction": "negative" if dti > 0.36 else "positive"},
             {"label": "Monthly surplus", "value": surplus, "direction": "positive" if surplus >= 0 else "negative"}
-        ]
+        ],
+        "localShap": _local_shap(scenario, features, approval),
+        "counterfactual": _counterfactual(scenario, features, approval),
     }
 
 
@@ -299,12 +464,15 @@ def model_score(scenario: ScenarioInput) -> dict[str, Any]:
     probability = float(model.predict_proba(frame)[:, 1][0])
     report = read_json(PUBLIC_DATA / "model_report.json")
     threshold = report.get("metrics", {}).get("bestThreshold", 0.9)
+    heuristic = heuristic_score(scenario)
     return {
-        **heuristic_score(scenario),
+        **heuristic,
         "mode": "calibrated-xgboost",
         "approvalLikelihood": round(probability, 3),
         "score": round(min(max(probability * 100, 0), 100)),
-        "bestThreshold": threshold
+        "bestThreshold": threshold,
+        # Re-compute counterfactual using the real model probability as baseline
+        "counterfactual": _counterfactual(scenario, features, probability),
     }
 
 
@@ -447,21 +615,188 @@ def list_scenarios(user: dict[str, Any] = Depends(user_from_authorization)) -> d
     return {"scenarios": store["scenarios"].get(user["id"], [])[-20:]}
 
 
+def _rule_based_explain(question: str, score: dict[str, Any]) -> tuple[str, str, str]:
+    """Fallback when no LLM is available."""
+    dti = score["dti"]
+    dp = score["downPaymentRate"]
+    surplus = score["monthlySurplus"]
+    cf = score.get("counterfactual", {})
+    cf_text = f" {cf['suggestion']}." if cf.get("suggestion") else ""
+
+    if dti > 0.38:
+        answer = (
+            f"Your DTI of {dti*100:.1f}% is the main pressure point — lenders prefer below 36%. "
+            f"Reducing monthly debt or lowering the target price has the most immediate impact on approval likelihood.{cf_text}"
+        )
+        highlight = "readiness"
+    elif dp < 0.18:
+        answer = (
+            f"Your down payment rate of {dp*100:.1f}% is below the 20% threshold most lenders prefer. "
+            f"A higher savings buffer reduces LTV, which directly lifts the approval probability.{cf_text}"
+        )
+        highlight = "finances"
+    elif surplus < 0:
+        answer = (
+            f"This scenario is cashflow negative (${surplus:,.0f}/mo surplus). "
+            f"Closing that gap by trimming flexible spending or increasing income stabilises the readiness score.{cf_text}"
+        )
+        highlight = "finances"
+    else:
+        answer = (
+            f"With a {dti*100:.1f}% DTI and {dp*100:.1f}% down payment this scenario is broadly balanced. "
+            f"Check the county comparison to see how approval rates vary across your target market.{cf_text}"
+        )
+        highlight = "hmda"
+    return answer, highlight, "rule-based"
+
+
+def _build_prompts(question: str, scenario: ScenarioInput, score: dict[str, Any]) -> tuple[str, str]:
+    """Build system and user prompts shared by all LLM backends."""
+    local_shap = score.get("localShap", [])
+    cf = score.get("counterfactual", {})
+
+    shap_lines = "\n".join(
+        f"  - {i['label']}: {'+' if i['impact'] > 0 else ''}{i['impact']*100:.1f}% impact"
+        for i in local_shap[:4]
+    ) or "  Not available"
+    cf_line = f"{cf['suggestion']} → approval +{cf['delta']*100:.1f}%" if cf.get("suggestion") else "none"
+
+    system_prompt = (
+        "You are ClariFi, an AI mortgage-readiness advisor inside an interactive dashboard.\n"
+        "The dashboard has four sections:\n"
+        '  "readiness" — score ring, approval likelihood, DTI, monthly surplus\n'
+        '  "finances"  — cashflow waterfall, budget mixer, expense sliders\n'
+        '  "hmda"      — California county map, borrower scatter, income histogram\n'
+        '  "model"     — SHAP drivers, calibration chart, DTI/LTV risk surface\n\n'
+        "Reply with a JSON object containing exactly two keys:\n"
+        '  "answer":    2-3 concise sentences using the user\'s actual numbers. Be specific and actionable.\n'
+        '  "highlight": the most relevant section name from the list above.\n\n'
+        "Output only the JSON object — no markdown, no extra text."
+    )
+
+    user_content = (
+        f'User question: "{question}"\n\n'
+        f"Scenario:\n"
+        f"  Market: {scenario.market}\n"
+        f"  Monthly income: ${scenario.income:,.0f}\n"
+        f"  Monthly debt: ${scenario.debt:,.0f}\n"
+        f"  Savings: ${scenario.savings:,.0f}\n"
+        f"  Target price: ${scenario.price:,.0f}\n"
+        f"  Expenses — food ${scenario.expenses.get('food',0):,.0f} · "
+        f"transport ${scenario.expenses.get('transport',0):,.0f} · "
+        f"lifestyle ${scenario.expenses.get('lifestyle',0):,.0f} · "
+        f"investing ${scenario.expenses.get('investing',0):,.0f}\n\n"
+        f"Score:\n"
+        f"  Readiness: {score['score']}/100\n"
+        f"  Approval likelihood: {score['approvalLikelihood']*100:.1f}%\n"
+        f"  DTI: {score['dti']*100:.1f}%\n"
+        f"  Down payment: {score['downPaymentRate']*100:.1f}%\n"
+        f"  Monthly housing: ${score['monthlyHousing']:,.0f}\n"
+        f"  Monthly surplus: ${score['monthlySurplus']:,.0f}\n\n"
+        f"Factor impacts:\n{shap_lines}\n\n"
+        f"Best improvement: {cf_line}"
+    )
+    return system_prompt, user_content
+
+
+def _parse_llm_json(raw: str) -> tuple[str, str] | None:
+    """Extract answer+highlight from a model response. Returns None on parse failure."""
+    text = raw.strip()
+    # Strip markdown code fences if present
+    if "```" in text:
+        for block in text.split("```"):
+            cleaned = block.lstrip("json").strip()
+            if cleaned.startswith("{"):
+                text = cleaned
+                break
+    # Find the first {...} block
+    start = text.find("{")
+    end = text.rfind("}") + 1
+    if start != -1 and end > start:
+        text = text[start:end]
+    try:
+        obj = json.loads(text)
+        answer = str(obj.get("answer", "")).strip()
+        highlight = str(obj.get("highlight", "readiness")).strip()
+        if highlight not in VALID_HIGHLIGHTS:
+            highlight = "readiness"
+        if answer:
+            return answer, highlight
+    except Exception:
+        pass
+    return None
+
+
+def _ollama_explain(question: str, scenario: ScenarioInput, score: dict[str, Any]) -> tuple[str, str, str] | None:
+    """Call the local Ollama API. Returns (answer, highlight, model_label) or None."""
+    system_prompt, user_content = _build_prompts(question, scenario, score)
+    try:
+        resp = httpx.post(
+            f"{OLLAMA_BASE_URL}/api/chat",
+            json={
+                "model": OLLAMA_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+                "stream": False,
+                "format": "json",
+                "options": {"temperature": 0.3},
+            },
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+        raw = resp.json()["message"]["content"]
+        parsed = _parse_llm_json(raw)
+        if parsed:
+            return parsed[0], parsed[1], OLLAMA_MODEL
+    except Exception:
+        pass
+    return None
+
+
+def _anthropic_explain(question: str, scenario: ScenarioInput, score: dict[str, Any]) -> tuple[str, str, str] | None:
+    """Call Anthropic Claude. Returns (answer, highlight, model_label) or None."""
+    if _anthropic is None or not ANTHROPIC_API_KEY:
+        return None
+    system_prompt, user_content = _build_prompts(question, scenario, score)
+    try:
+        client = _anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=300,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_content}],
+        )
+        parsed = _parse_llm_json(response.content[0].text)
+        if parsed:
+            return parsed[0], parsed[1], "claude-sonnet-4-6"
+    except Exception:
+        pass
+    return None
+
+
+def _llm_explain(question: str, scenario: ScenarioInput, score: dict[str, Any]) -> tuple[str, str, str]:
+    """Try Ollama → Anthropic → rule-based, returning (answer, highlight, model_label)."""
+    result = _ollama_explain(question, scenario, score)
+    if result:
+        return result
+    result = _anthropic_explain(question, scenario, score)
+    if result:
+        return result
+    return _rule_based_explain(question, score)
+
+
 @app.post("/api/agent/explain")
 def explain(payload: AgentExplainInput, user: dict[str, Any] = Depends(user_from_authorization)) -> dict[str, Any]:
     scenario = payload.scenario or ScenarioInput()
     score = model_score(scenario)
-    if score["dti"] > 0.38:
-        answer = "Your DTI is the main pressure point. Lower monthly debt or reduce target price before increasing the down payment target."
-    elif score["downPaymentRate"] < 0.18:
-        answer = "The down payment is the clearest improvement lever. A higher savings buffer should improve readiness and reduce LTV pressure."
-    elif score["monthlySurplus"] < 0:
-        answer = "The scenario is cashflow negative. Restore monthly surplus before treating the approval likelihood as stable."
-    else:
-        answer = "This scenario is broadly balanced. The dashboard should focus on county comparison and resilience under expense shocks."
+    answer, highlight, agent_mode = _llm_explain(payload.question, scenario, score)
     message = {
         "question": payload.question,
         "answer": answer,
+        "highlight": highlight,
+        "agentMode": agent_mode,
         "score": score,
         "createdAt": utc_now()
     }
