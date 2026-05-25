@@ -166,3 +166,31 @@ jupyter notebook notebooks/hmda_2025_xgboost_shap.ipynb
 ```
 
 It removes leakage-prone fields such as `interest_rate`, excludes sensitive demographic fields from scoring, trains/tunes XGBoost, calibrates probabilities, generates SHAP summaries, and exports dashboard-ready model reports.
+
+## System Architecture
+
+```
+┌─────────────────────────┐    /api/*  (HTTP/JSON)    ┌─────────────────────────┐    joblib / HTTP    ┌─────────────────────────┐
+│       FRONTEND          │ ─────────────────────────► │        BACKEND          │ ──────────────────► │       ML / AI           │
+│                         │                            │                         │                      │                         │
+│  React · TypeScript     │                            │  FastAPI · Python       │                      │  XGBoost + LLM          │
+│  D3.js · Vite 6         │                            │  Uvicorn · port 8001    │                      │  300 trees · depth 5    │
+│  8 interactive charts   │                            │  13 REST endpoints      │                      │  Isotonic calibration   │
+│  Dark / light theme     │ ◄─────────── JSON ──────── │  JWT + JSON store       │ ◄─ scores+explain ── │  Ollama mistral (local) │
+│  JWT auth flow          │                            │  XGBoost inference      │                      │  SHAP approximations    │
+└─────────────────────────┘                            └─────────────────────────┘                      └─────────────────────────┘
+     8 charts · 4 interactive                             13 endpoints · <50 ms                           AUC 0.806 · Brier 0.063
+```
+
+## Interactive Charts
+
+| Chart | Description | Interaction |
+|---|---|---|
+| `CashflowChart` | Waterfall: income → expenses → surplus | Hover pop-out with glow/dim |
+| `IncomeHistogram` | Income vs. HMDA cohort distribution | Crosshair + income pill label |
+| `ChoroplethMap` | California county readiness map | Smooth gradient legend, county tooltips |
+| `RiskSurface` | DTI × down payment approval heatmap | Pulsing "You" marker |
+| `BenchmarkBars` | Income vs. BLS occupation benchmarks | Static |
+| `ExpenseDonut` | Spending breakdown | Static |
+| `HmdaScatter` | Loan amount vs. income (HMDA) | Static |
+| `CalibrationChart` | Model predicted vs. actual approval rate | Static |

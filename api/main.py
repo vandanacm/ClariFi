@@ -55,6 +55,7 @@ MODEL_PATH = PUBLIC_DATA / "model_outputs" / "hmda_2025_xgboost_calibrated_pipel
 MONGODB_URI = os.getenv("MONGODB_URI")
 MONGODB_DB = os.getenv("MONGODB_DB", "clarifi")
 MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "app_store")
+LOCAL_STORE_PATH = PUBLIC_DATA / "local_store.json"
 
 app = FastAPI(
     title="ClariFi API",
@@ -111,7 +112,11 @@ def initial_store() -> dict[str, Any]:
 
 def load_store() -> dict[str, Any]:
     if MONGO_CLIENT is None:
-        raise RuntimeError("MONGODB_URI is not configured. Set it in your .env file.")
+        if LOCAL_STORE_PATH.exists():
+            return read_json(LOCAL_STORE_PATH)
+        store = initial_store()
+        save_store(store)
+        return store
     collection = MONGO_CLIENT[MONGODB_DB][MONGODB_COLLECTION]
     doc = collection.find_one({"_id": "clarifi_store"})
     if not doc:
@@ -124,7 +129,9 @@ def load_store() -> dict[str, Any]:
 
 def save_store(store: dict[str, Any]) -> None:
     if MONGO_CLIENT is None:
-        raise RuntimeError("MONGODB_URI is not configured. Set it in your .env file.")
+        with LOCAL_STORE_PATH.open("w", encoding="utf-8") as f:
+            json.dump(store, f)
+        return
     collection = MONGO_CLIENT[MONGODB_DB][MONGODB_COLLECTION]
     collection.replace_one({"_id": "clarifi_store"}, {"_id": "clarifi_store", **store}, upsert=True)
 

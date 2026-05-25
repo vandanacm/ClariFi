@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "dev:api": ".venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000",
-    "dev:api:reload": ".venv/bin/uvicorn api.main:app --reload --host 127.0.0.1 --port 8000",
+    "dev:api": ".venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8001",
+    "dev:api:reload": ".venv/bin/uvicorn api.main:app --reload --host 127.0.0.1 --port 8001",
     "dev:full": "concurrently \"npm run dev:api\" \"npm run dev\"",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
