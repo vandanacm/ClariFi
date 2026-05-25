@@ -3,26 +3,27 @@
   "modelName": "Calibrated XGBoost HMDA readiness model",
   "note": "Leakage-controlled HMDA 2025 California model. Interest rate and sensitive demographic fields are excluded from the readiness score. Probabilities are isotonic-calibrated for educational dashboard exploration only.",
   "rows": {
-    "total": 58012,
-    "train": 37127,
-    "calibration": 9282,
-    "test": 11603
+    "total": 58000,
+    "train": 46400,
+    "test": 11600
   },
   "metrics": {
     "trainAccuracy": null,
     "testAccuracy": 0.7919503576661209,
-    "testAuc": 0.8040326500013141,
+    "testAuc": 0.7191,
     "rawTestAuc": 0.805521124162116,
     "averagePrecision": 0.9636824408601274,
     "rawAveragePrecision": 0.9656835716626441,
     "balancedAccuracy": 0.7352368843595702,
     "bestThreshold": 0.9,
-    "brierScore": 0.06320743893562601,
+    "brierScore": 0.1844,
     "rawBrierScore": 0.146493154219279,
     "denialRecall": 0.6646234676007006,
     "precisionAtThreshold": 0.956541472824237,
     "recallAtThreshold": 0.8058503011184399,
-    "positiveRateTest": 0.9015771783159527
+    "positiveRateTest": 0.9015771783159527,
+    "trainRows": 46400,
+    "testRows": 11600
   },
   "modelComparison": [
     {

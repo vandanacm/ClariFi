@@ -1,8 +1,10 @@
-import { BarChart3, Bot, Home, Landmark, LogIn, UserPlus } from "lucide-react";
+import { BarChart3, Bot, Home, Landmark, LogIn, Moon, Sun, UserPlus } from "lucide-react";
 
 interface LandingProps {
   onSignIn: () => void;
   onDemo: () => void;
+  theme: string;
+  toggleTheme: () => void;
 }
 
 const PREVIEW_METRICS = [
@@ -35,21 +37,34 @@ const FEATURES = [
   }
 ];
 
-export function Landing({ onSignIn, onDemo }: LandingProps) {
+export function Landing({ onSignIn, onDemo, theme, toggleTheme }: LandingProps) {
   return (
     <div className="landing">
       <nav className="landing-nav">
-        <div className="landing-brand">
-          <span className="brand-symbol">C</span>
+        <div className="landing-brand" style={{ cursor: "pointer" }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} title="Scroll to top">
+          <span className="brand-symbol">
+            <img src="/logo.png" alt="ClariFi Logo" />
+          </span>
           <div>
             <p className="brand-name landing-brand-name">ClariFi</p>
             <p className="brand-caption landing-brand-caption">AI-Guided Finance</p>
           </div>
         </div>
-        <button className="landing-signin-btn" type="button" onClick={onSignIn}>
-          <LogIn size={15} />
-          Sign in
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <button
+            type="button"
+            className="header-action-btn"
+            onClick={toggleTheme}
+            style={{ borderRadius: "50%", padding: "10px", display: "grid", placeItems: "center" }}
+            title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+          >
+            {theme === "light" ? <Moon size={16} /> : <Sun size={16} style={{ color: "#f4c95d" }} />}
+          </button>
+          <button className="landing-signin-btn" type="button" onClick={onSignIn}>
+            <LogIn size={15} />
+            Sign in
+          </button>
+        </div>
       </nav>
 
       <section className="landing-hero">
@@ -118,6 +133,9 @@ export function Landing({ onSignIn, onDemo }: LandingProps) {
 
       <footer className="landing-footer">
         <p>For educational purposes only — not a lending decision or financial advice. California HMDA 2025 data.</p>
+        <p className="footer-credits" style={{ marginTop: '8px', opacity: 0.8, fontSize: '0.85rem' }}>
+          © 2026 ClariFi. All rights reserved. &bull; Created by Lalitha, <a href="https://pranavmanimaran.vercel.app" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Pranav</a>, and <a href="https://vandanacm.github.io/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Vandana</a>
+        </p>
         <button className="landing-demo-link" type="button" onClick={onDemo}>
           Skip — explore as demo household →
         </button>

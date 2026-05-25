@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import * as d3 from "d3";
 import { feature } from "topojson-client";
 import type { BenchmarkCategory, HmdaModel, ModelReport, ScenarioInput, ScoreResult } from "./types";
@@ -37,20 +37,84 @@ export function CashflowChart({ scenario, score }: CashflowProps) {
   const y = d3.scaleLinear([-max, max], [height - margin.bottom, margin.top]);
   const zero = y(0);
 
+  const [hoveredBar, setHoveredBar] = useState<string | null>(null);
+
   return (
     <svg className="cashflow-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Monthly cashflow waterfall">
+      <defs>
+        <filter id="cashflowGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="3" stdDeviation="5" floodColor="currentColor" floodOpacity="0.35" />
+        </filter>
+      </defs>
       <line className="axis-line" x1={margin.left} y1={zero} x2={width - margin.right} y2={zero} />
       {bars.map(item => {
         const x0 = x(item.label) ?? 0;
         const y0 = item.value >= 0 ? y(item.value) : zero;
         const h = Math.max(Math.abs(y(item.value) - zero), 8);
+        const isHovered = hoveredBar === item.label;
+        const isAnyHovered = hoveredBar !== null;
+        const pop = isHovered ? 5 : 0;
         return (
-          <g key={item.label}>
-            <rect className={`cashflow-bar ${item.tone}`} x={x0} y={y0} width={x.bandwidth()} height={h} rx={7} />
-            <text className="cashflow-value" x={x0 + x.bandwidth() / 2} y={y0 - 9} textAnchor="middle">
-              {money.format(item.value)}
-            </text>
-            <text className="tick-label" x={x0 + x.bandwidth() / 2} y={height - 24} textAnchor="middle">
+          <g
+            key={item.label}
+            onMouseEnter={() => setHoveredBar(item.label)}
+            onMouseLeave={() => setHoveredBar(null)}
+            style={{ cursor: "default" }}
+          >
+            <g style={{ transform: `translateY(${-pop}px)`, transition: "transform 140ms cubic-bezier(0.34,1.56,0.64,1)" }}>
+              <rect
+                className={`cashflow-bar ${item.tone}`}
+                x={x0}
+                y={y0}
+                width={x.bandwidth()}
+                height={h + pop}
+                rx={7}
+                style={{
+                  opacity: isAnyHovered && !isHovered ? 0.4 : 1,
+                  transition: "opacity 140ms ease",
+                  filter: isHovered ? "url(#cashflowGlow)" : undefined,
+                }}
+              />
+            </g>
+            {/* Hover tooltip card */}
+            {isHovered && (
+              <g>
+                <rect
+                  x={x0 + x.bandwidth() / 2 - 34}
+                  y={y0 - pop - 30}
+                  width={68}
+                  height={20}
+                  rx={6}
+                  fill="var(--surface-2, #1e2a3a)"
+                  stroke="var(--line)"
+                  strokeWidth={0.8}
+                  opacity={0.95}
+                />
+                <text
+                  x={x0 + x.bandwidth() / 2}
+                  y={y0 - pop - 15}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fontWeight={800}
+                  fill="var(--ink)"
+                >
+                  {money.format(item.value)}
+                </text>
+              </g>
+            )}
+            {/* Static value label — hide when hovered (tooltip replaces it) */}
+            {!isHovered && (
+              <text className="cashflow-value" x={x0 + x.bandwidth() / 2} y={y0 - 9} textAnchor="middle">
+                {money.format(item.value)}
+              </text>
+            )}
+            <text
+              className="tick-label"
+              x={x0 + x.bandwidth() / 2}
+              y={height - 24}
+              textAnchor="middle"
+              style={{ opacity: isAnyHovered && !isHovered ? 0.4 : 1, transition: "opacity 140ms ease" }}
+            >
               {item.label}
             </text>
           </g>
@@ -63,32 +127,90 @@ export function CashflowChart({ scenario, score }: CashflowProps) {
 type DonutProps = {
   scenario: ScenarioInput;
   score: ScoreResult;
+  hoveredKey?: string | null;
+  onHoverChange?: (key: string | null) => void;
 };
 
-export function ExpenseDonut({ scenario, score }: DonutProps) {
+export function ExpenseDonut({ scenario, score, hoveredKey, onHoverChange }: DonutProps) {
   const items = [
-    { label: "Housing", value: score.monthlyHousing, color: "#3867b7" },
-    { label: "Debt", value: scenario.debt, color: "#c95d63" },
-    { label: "Food", value: scenario.expenses.food, color: "#007f7a" },
-    { label: "Transport", value: scenario.expenses.transport, color: "#d99a20" },
-    { label: "Lifestyle", value: scenario.expenses.lifestyle, color: "#7b61c8" },
-    { label: "Investing", value: scenario.expenses.investing, color: "#2f9e44" }
+    { label: "Housing", value: score.monthlyHousing, color: "#3867b7", key: "housing" },
+    { label: "Debt", value: scenario.debt, color: "#c95d63", key: "debt" },
+    { label: "Food", value: scenario.expenses.food, color: "#007f7a", key: "food" },
+    { label: "Transport", value: scenario.expenses.transport, color: "#d99a20", key: "transport" },
+    { label: "Lifestyle", value: scenario.expenses.lifestyle, color: "#7b61c8", key: "lifestyle" },
+    { label: "Investing", value: scenario.expenses.investing, color: "#2f9e44", key: "investing" }
   ];
   const total = d3.sum(items, item => item.value);
-  const arc = d3.arc<d3.PieArcDatum<(typeof items)[number]>>().innerRadius(58).outerRadius(86);
+  
+  const [localHovered, setLocalHovered] = useState<(typeof items)[number] | null>(null);
+
+  const activeKey = hoveredKey !== undefined ? hoveredKey : localHovered?.key;
+  const activeItem = items.find(item => item.key === activeKey) || null;
+
+  const setHover = (item: (typeof items)[number] | null) => {
+    if (onHoverChange) {
+      onHoverChange(item ? item.key : null);
+    } else {
+      setLocalHovered(item);
+    }
+  };
+
+  const arc = d3.arc<d3.PieArcDatum<(typeof items)[number]>>().innerRadius(58).outerRadius(84);
+  const activeArc = d3.arc<d3.PieArcDatum<(typeof items)[number]>>().innerRadius(58).outerRadius(92);
   const pie = d3.pie<(typeof items)[number]>().sort(null).value(item => item.value);
 
   return (
     <svg className="expense-donut" viewBox="0 0 220 220" role="img" aria-label="Expense mix donut chart">
       <g transform="translate(110,110)">
-        {pie(items).map(slice => (
-          <path key={slice.data.label} d={arc(slice) ?? undefined} fill={slice.data.color}>
-            <title>{slice.data.label}: {money.format(slice.data.value)}</title>
-          </path>
-        ))}
+        {pie(items).map(slice => {
+          const isHovered = activeItem?.label === slice.data.label;
+          return (
+            <path
+              key={slice.data.label}
+              d={(isHovered ? activeArc(slice) : arc(slice)) ?? undefined}
+              fill={slice.data.color}
+              onMouseEnter={() => setHover(slice.data)}
+              onMouseLeave={() => setHover(null)}
+              onClick={() => setHover(isHovered ? null : slice.data)}
+              style={{
+                cursor: "pointer",
+                transition: "d 150ms cubic-bezier(0.4, 0, 0.2, 1), opacity 150ms ease",
+                opacity: activeItem === null || isHovered ? 1 : 0.65
+              }}
+            >
+              <title>{slice.data.label}: {money.format(slice.data.value)}</title>
+            </path>
+          );
+        })}
       </g>
-      <text className="donut-center-main" x="110" y="104" textAnchor="middle">{money.format(total)}</text>
-      <text className="donut-center-sub" x="110" y="126" textAnchor="middle">monthly outflow</text>
+      <text
+        className="donut-center-main"
+        x="110"
+        y="105"
+        textAnchor="middle"
+        style={{
+          fill: activeItem ? activeItem.color : "var(--ink)",
+          transition: "fill 150ms ease",
+          fontSize: "1.18rem"
+        }}
+      >
+        {activeItem ? money.format(activeItem.value) : money.format(total)}
+      </text>
+      <text
+        className="donut-center-sub"
+        x="110"
+        y="123"
+        textAnchor="middle"
+        style={{
+          fill: activeItem ? activeItem.color : "var(--muted)",
+          transition: "fill 150ms ease",
+          opacity: activeItem ? 0.9 : 0.65,
+          fontSize: "0.62rem",
+          letterSpacing: "0.06em"
+        }}
+      >
+        {activeItem ? activeItem.label : "monthly outflow"}
+      </text>
     </svg>
   );
 }
@@ -241,38 +363,61 @@ export function ChoroplethMap({ hmda, scenario }: ChoroplethProps) {
     [hmda, scenario.market]
   );
 
+  const [hoveredCounty, setHoveredCounty] = useState<string | null>(null);
+  const hoveredInfo = hoveredCounty ? readinessMap[hoveredCounty] : null;
+
   return (
     <svg viewBox="0 0 500 580" className="choropleth-map" role="img" aria-label="California county readiness map">
+      <defs>
+        <linearGradient id="readinessLegendGrad" x1="0" y1="0" x2="1" y2="0">
+          {d3.range(0, 1.01, 0.1).map((t, i) => (
+            <stop key={i} offset={`${(t * 100).toFixed(0)}%`} stopColor={_readinessColor(40 + t * 60)} />
+          ))}
+        </linearGradient>
+      </defs>
       {caFeatures.map(feat => {
         const name = (feat.properties as { name?: string })?.name ?? "";
         const info = readinessMap[name];
         const fill = info != null ? _readinessColor(info.readiness) : "#d7e1e6";
         const isHighlighted = selectedCountyNames.has(name);
+        const isHovered = hoveredCounty === name;
         const pathD = _choroplethPath(feat) ?? "";
         return (
           <path
             key={String(feat.id)}
             d={pathD}
             fill={fill}
-            stroke={isHighlighted ? "#152331" : "#b8c8d0"}
-            strokeWidth={isHighlighted ? 2 : 0.5}
+            stroke={isHovered ? "white" : isHighlighted ? "var(--ink)" : "var(--line)"}
+            strokeWidth={isHovered ? 2 : isHighlighted ? 2 : 0.5}
             opacity={info != null ? 1 : 0.65}
-          >
-            <title>
-              {name}{info != null ? `: ${info.readiness}/100 readiness · ${info.approvalRate != null ? `${(info.approvalRate * 100).toFixed(0)}% approved` : ""}` : ": no data"}
-            </title>
-          </path>
+            style={{ cursor: info != null ? "pointer" : "default", transition: "stroke 100ms ease, stroke-width 100ms ease" }}
+            onMouseEnter={() => info != null && setHoveredCounty(name)}
+            onMouseLeave={() => setHoveredCounty(null)}
+          />
         );
       })}
-      {/* Legend */}
-      <g transform="translate(10,550)">
-        <text fontSize="9" fontWeight="700" fill="#657383" y={-6}>Readiness score</text>
-        {d3.range(40, 101, 12).map((v, i) => (
-          <rect key={v} x={i * 22} y={0} width={22} height={10} fill={_readinessColor(v)} />
-        ))}
-        <text fontSize="9" fill="#657383" y={20}>Low</text>
-        <text fontSize="9" fill="#657383" x={130} y={20}>High</text>
+
+      {/* Smooth gradient legend */}
+      <g transform="translate(10,530)">
+        <text fontSize="9" fontWeight="700" fill="var(--muted)" letterSpacing="0.04em" y={-8}>READINESS SCORE</text>
+        <rect x={0} y={0} width={150} height={10} rx={3} fill="url(#readinessLegendGrad)" />
+        <text fontSize="9" fill="var(--muted)" y={22}>Low</text>
+        <text fontSize="9" fill="var(--muted)" x={150} y={22} textAnchor="end">High</text>
       </g>
+
+      {/* Custom hover tooltip fixed at bottom of map */}
+      {hoveredCounty && hoveredInfo && (
+        <g transform="translate(250,490)">
+          <rect x={-95} y={-14} width={190} height={36} rx={8} fill="var(--surface-2, #1e2a3a)" stroke="var(--line)" strokeWidth={0.8} opacity={0.96} />
+          <text fontSize="11" fontWeight="800" fill="var(--ink)" textAnchor="middle" y={2}>
+            {hoveredCounty}
+          </text>
+          <text fontSize="9" fill="var(--muted)" textAnchor="middle" y={16}>
+            Readiness {hoveredInfo.readiness}/100
+            {hoveredInfo.approvalRate != null ? ` · ${(hoveredInfo.approvalRate * 100).toFixed(0)}% approved` : ""}
+          </text>
+        </g>
+      )}
     </svg>
   );
 }
@@ -322,22 +467,32 @@ export function RiskSurface({ score }: RiskSurfaceProps) {
           );
         })
       )}
-      {/* User marker */}
+      {/* User marker — glow ring + circle + pill label */}
+      <circle
+        className="pulse-ring"
+        cx={mg.left + uCol * cellW + cellW / 2}
+        cy={mg.top + uRow * cellH + cellH / 2}
+        r={14}
+        fill="none"
+        stroke="white"
+        strokeWidth={1}
+      />
       <circle
         cx={mg.left + uCol * cellW + cellW / 2}
         cy={mg.top + uRow * cellH + cellH / 2}
         r={9}
         fill="none"
-        stroke="#152331"
+        stroke="white"
         strokeWidth={2.5}
       />
-      <text fontSize="9" fontWeight="700" fill="#152331"
-        x={mg.left + uCol * cellW + cellW / 2}
-        y={mg.top + uRow * cellH - 4}
-        textAnchor="middle">You</text>
+      {/* "You" pill label */}
+      <g transform={`translate(${mg.left + uCol * cellW + cellW / 2}, ${mg.top + uRow * cellH - 8})`}>
+        <rect x={-14} y={-12} width={28} height={13} rx={4} fill="rgba(15,23,42,0.82)" stroke="rgba(255,255,255,0.18)" strokeWidth={0.5} />
+        <text fontSize="8" fontWeight="800" fill="white" textAnchor="middle" y={-2}>You</text>
+      </g>
       {/* DTI axis */}
       {_dtiSteps.map((dti, i) => (
-        <text key={dti} fontSize="9" fill="#657383" textAnchor="middle"
+        <text key={dti} fontSize="9" fill="var(--muted)" textAnchor="middle"
           x={mg.left + i * cellW + cellW / 2}
           y={H - mg.bottom + 14}>
           {(dti * 100).toFixed(0)}%
@@ -345,15 +500,15 @@ export function RiskSurface({ score }: RiskSurfaceProps) {
       ))}
       {/* Down payment axis */}
       {_dpSteps.slice().reverse().map((dp, i) => (
-        <text key={dp} fontSize="9" fill="#657383" textAnchor="end"
+        <text key={dp} fontSize="9" fill="var(--muted)" textAnchor="end"
           x={mg.left - 6}
           y={mg.top + i * cellH + cellH / 2 + 4}>
           {(dp * 100).toFixed(0)}%
         </text>
       ))}
-      <text fontSize="10" fill="#657383" textAnchor="middle"
+      <text fontSize="10" fill="var(--muted)" textAnchor="middle"
         x={mg.left + (W - mg.left - mg.right) / 2} y={H - 8}>DTI ratio</text>
-      <text fontSize="10" fill="#657383" textAnchor="middle"
+      <text fontSize="10" fill="var(--muted)" textAnchor="middle"
         transform={`rotate(-90 14 ${mg.top + (H - mg.top - mg.bottom) / 2})`}
         x={14} y={mg.top + (H - mg.top - mg.bottom) / 2}>Down payment %</text>
     </svg>
@@ -361,6 +516,12 @@ export function RiskSurface({ score }: RiskSurfaceProps) {
 }
 
 // ── Income distribution histogram ──────────────────────────────────────────
+
+function getRoundedTopPath(x: number, y: number, w: number, h: number, r: number) {
+  const currentR = Math.min(r, h, w / 2);
+  if (currentR <= 0) return `M ${x},${y} L ${x + w},${y} L ${x + w},${y + h} L ${x},${y + h} Z`;
+  return `M ${x},${y + h} L ${x},${y + currentR} A ${currentR},${currentR} 0 0 1 ${x + currentR},${y} L ${x + w - currentR},${y} A ${currentR},${currentR} 0 0 1 ${x + w},${y + currentR} L ${x + w},${y + h} Z`;
+}
 
 type HistogramProps = {
   hmda: HmdaModel;
@@ -383,50 +544,163 @@ export function IncomeHistogram({ hmda, scenario }: HistogramProps) {
   const maxCount = d3.max(bins, b => b.length) ?? 1;
   const y = d3.scaleLinear([0, maxCount], [H - mg.bottom, mg.top]);
 
+  const [cursor, setCursor] = useState<{ svgX: number; income: number } | null>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const scale = W / rect.width;
+    const svgX = (e.clientX - rect.left) * scale;
+    if (svgX >= mg.left && svgX <= W - mg.right) {
+      setCursor({ svgX, income: x.invert(svgX) });
+    } else {
+      setCursor(null);
+    }
+  };
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="histogram-chart" role="img" aria-label="Income distribution for selected market">
-      <line className="axis-line" x1={mg.left} y1={H - mg.bottom} x2={W - mg.right} y2={H - mg.bottom} />
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="histogram-chart"
+      role="img"
+      aria-label="Income distribution for selected market"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setCursor(null)}
+    >
+      <defs>
+        <linearGradient id="approvedGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#06b6d4" />
+          <stop offset="100%" stopColor="#10b981" />
+        </linearGradient>
+        <linearGradient id="deniedGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fb7185" />
+          <stop offset="100%" stopColor="#f43f5e" />
+        </linearGradient>
+      </defs>
+
+      {/* Grid lines */}
+      {[0.25, 0.5, 0.75, 1].map((p, idx) => {
+        const val = maxCount * p;
+        const ly = y(val);
+        return (
+          <line
+            key={idx}
+            x1={mg.left}
+            y1={ly}
+            x2={W - mg.right}
+            y2={ly}
+            stroke="var(--line)"
+            strokeOpacity={0.12}
+            strokeDasharray="3 3"
+          />
+        );
+      })}
+
+      <line className="axis-line" x1={mg.left} y1={H - mg.bottom} x2={W - mg.right} y2={H - mg.bottom} stroke="var(--line)" opacity={0.3} />
+      
       {bins.map((bin, i) => {
         const bx = x(bin.x0 ?? 0) + 1;
         const bw = Math.max(x(bin.x1 ?? 0) - x(bin.x0 ?? 0) - 2, 0);
         const approved = bin.filter(d => d.approved).length;
         const denied = bin.length - approved;
         const yApproved = y(approved);
-        const yDenied = y(denied);
         const baseline = H - mg.bottom;
+
+        const approvedH = baseline - yApproved;
+        const deniedH = baseline - y(denied); // Denied height based on its raw count scale
+
         return (
           <g key={i}>
-            {denied > 0 && (
-              <rect x={bx} y={baseline - (baseline - yApproved) - (baseline - yDenied)}
-                width={bw} height={baseline - yDenied} fill="var(--rose)" opacity={0.75}>
-                <title>{denied} denied</title>
-              </rect>
-            )}
+            {/* Approved Bar (bottom stacked portion) */}
             {approved > 0 && (
-              <rect x={bx} y={yApproved} width={bw} height={baseline - yApproved} fill="var(--teal)" opacity={0.8}>
-                <title>{approved} approved</title>
-              </rect>
+              denied > 0 ? (
+                /* Flat top when denied bar sits on top of it */
+                <rect
+                  x={bx}
+                  y={yApproved}
+                  width={bw}
+                  height={approvedH}
+                  fill="url(#approvedGrad)"
+                >
+                  <title>{approved} approved</title>
+                </rect>
+              ) : (
+                /* Rounded top when it's the only bar segment */
+                <path
+                  d={getRoundedTopPath(bx, yApproved, bw, approvedH, 4)}
+                  fill="url(#approvedGrad)"
+                >
+                  <title>{approved} approved</title>
+                </path>
+              )
+            )}
+
+            {/* Denied Bar (sits on top of approved) */}
+            {denied > 0 && (
+              <path
+                d={getRoundedTopPath(bx, yApproved - deniedH, bw, deniedH, 4)}
+                fill="url(#deniedGrad)"
+              >
+                <title>{denied} denied</title>
+              </path>
             )}
           </g>
         );
       })}
-      {/* User income marker */}
-      <line x1={x(scenario.income)} y1={mg.top} x2={x(scenario.income)} y2={H - mg.bottom}
-        stroke="#152331" strokeWidth={2} strokeDasharray="5 3" />
-      <text fontSize="9" fontWeight="700" fill="#152331"
-        x={x(scenario.income) + 5} y={mg.top + 12}>You</text>
+
+      {/* User income marker (Glowing Golden Pin & Pulsing Dot) */}
+      <line x1={x(scenario.income)} y1={mg.top + 8} x2={x(scenario.income)} y2={H - mg.bottom}
+        stroke="var(--gold)" strokeWidth={3} opacity={0.2} strokeLinecap="round" />
+      <line x1={x(scenario.income)} y1={mg.top + 8} x2={x(scenario.income)} y2={H - mg.bottom}
+        stroke="var(--gold)" strokeWidth={1} strokeDasharray="3 3" />
+      
+      {/* Target intersection glowing circle */}
+      <circle cx={x(scenario.income)} cy={H - mg.bottom} r={4} fill="var(--gold)" opacity={0.8} />
+      <circle cx={x(scenario.income)} cy={H - mg.bottom} r={8} fill="none" stroke="var(--gold)" strokeWidth={1.5} opacity={0.4} />
+
+      <g transform={`translate(${x(scenario.income)}, ${mg.top + 6})`}>
+        <rect x={-16} y={-8} width={32} height={16} rx={8} fill="var(--gold)" />
+        <text fontSize="8" fontWeight="900" fill="#0f172a" textAnchor="middle" y={3}>YOU</text>
+      </g>
+
       {/* X ticks */}
       {x.ticks(6).map(tick => (
-        <text key={tick} fontSize="9" fill="#657383" textAnchor="middle"
+        <text key={tick} fontSize="9" fill="var(--muted)" fontWeight="600" textAnchor="middle"
           x={x(tick)} y={H - mg.bottom + 14}>${(tick / 1000).toFixed(0)}k</text>
       ))}
-      {/* Legend */}
-      <rect x={W - mg.right - 70} y={mg.top} width={10} height={10} fill="var(--teal)" opacity={0.8} />
-      <text fontSize="9" fill="#657383" x={W - mg.right - 57} y={mg.top + 9}>Approved</text>
-      <rect x={W - mg.right - 70} y={mg.top + 14} width={10} height={10} fill="var(--rose)" opacity={0.75} />
-      <text fontSize="9" fill="#657383" x={W - mg.right - 57} y={mg.top + 23}>Denied</text>
-      <text fontSize="10" fill="#657383" textAnchor="middle"
+
+      {/* Elegant Legend */}
+      <g transform={`translate(${W - mg.right - 90}, ${mg.top - 8})`}>
+        <rect x={0} y={0} width={8} height={8} rx={2} fill="url(#approvedGrad)" />
+        <text fontSize="9" fontWeight="700" fill="var(--muted)" x={12} y={8}>Approved</text>
+        
+        <rect x={0} y={14} width={8} height={8} rx={2} fill="url(#deniedGrad)" />
+        <text fontSize="9" fontWeight="700" fill="var(--muted)" x={12} y={22}>Denied</text>
+      </g>
+
+      <text fontSize="10" fill="var(--muted)" fontWeight="600" textAnchor="middle"
         x={mg.left + (W - mg.left - mg.right) / 2} y={H - 6}>Monthly income</text>
+
+      {/* Crosshair */}
+      {cursor && (
+        <g style={{ pointerEvents: "none" }}>
+          <line
+            x1={cursor.svgX}
+            y1={mg.top}
+            x2={cursor.svgX}
+            y2={H - mg.bottom}
+            stroke="var(--muted)"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            opacity={0.55}
+          />
+          <g transform={`translate(${cursor.svgX}, ${H - mg.bottom + 2})`}>
+            <rect x={-18} y={0} width={36} height={14} rx={4} fill="var(--surface-2, #1e2a3a)" stroke="var(--line)" strokeWidth={0.6} />
+            <text fontSize="8" fontWeight="700" fill="var(--muted)" textAnchor="middle" y={10}>
+              ${(cursor.income / 1000).toFixed(1)}k
+            </text>
+          </g>
+        </g>
+      )}
     </svg>
   );
 }

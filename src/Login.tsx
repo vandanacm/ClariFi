@@ -56,7 +56,9 @@ export function AuthModal({ onSuccess, onClose }: Props) {
         </button>
 
         <div className="auth-brand">
-          <span className="auth-brand-symbol">C</span>
+          <span className="auth-brand-symbol">
+            <img src="/logo.png" alt="ClariFi Logo" />
+          </span>
           <div>
             <p className="auth-brand-name">ClariFi</p>
             <p className="auth-brand-caption">AI-Guided Finance</p>

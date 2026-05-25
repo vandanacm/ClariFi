@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { AlertTriangle, BarChart3, Bot, Database, Home, Landmark, LogIn, LogOut, Navigation, Upload, UserPlus } from "lucide-react";
+import { AlertTriangle, BarChart3, Bot, Database, Home, Landmark, LogIn, LogOut, Moon, Navigation, Sun, Upload, UserPlus } from "lucide-react";
 import { api } from "./api";
 import { AuthModal } from "./Login";
 import { Landing } from "./Landing";
@@ -114,9 +114,84 @@ function hintsFromFinance(summary: FinanceSummary): Partial<ScenarioInput> {
   return hints;
 }
 
+function calculateLocalScore(scenario: ScenarioInput): ScoreResult {
+  const price = Number(scenario.price);
+  const savings = Number(scenario.savings);
+  const income = Number(scenario.income);
+  const debt = Number(scenario.debt);
+  
+  const monthlyHousing = Math.round((price - savings) * 0.0062);
+  const flexibleExpenses = Number(scenario.expenses.food) + 
+                           Number(scenario.expenses.transport) + 
+                           Number(scenario.expenses.lifestyle) + 
+                           Number(scenario.expenses.investing);
+  const monthlySurplus = Math.round(income - debt - monthlyHousing - flexibleExpenses);
+  
+  const dti = Number(((debt + monthlyHousing) / income).toFixed(3));
+  const downPaymentRate = Number((savings / price).toFixed(3));
+  
+  // Calculate a realistic local score
+  const incomeMedian = 7800; // Median Sacramento income
+  const priceMedian = 490000;
+  const incomeFit = income / incomeMedian;
+  const priceFit = priceMedian / price;
+  
+  const clampVal = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
+  
+  const rawScore = 34 +
+    downPaymentRate * 118 +
+    (1 - Math.abs(dti - 0.32)) * 26 +
+    incomeFit * 17 +
+    priceFit * 11 -
+    Math.max(dti - 0.36, 0) * 360 +
+    clampVal(monthlySurplus / 1800, -8, 9);
+    
+  const score = Math.round(clampVal(rawScore, 18, 96));
+  
+  const approvalBase = 0.52;
+  const approval = Number(clampVal(
+    approvalBase +
+      (score - 70) / 180 +
+      (downPaymentRate - 0.15) * 0.8 -
+      Math.max(dti - 0.36, 0) * 1.2,
+    0.18,
+    0.94
+  ).toFixed(3));
+
+  return {
+    mode: "local estimate",
+    score,
+    approvalLikelihood: approval,
+    monthlyHousing,
+    monthlySurplus,
+    dti,
+    downPaymentRate,
+    drivers: [
+      { label: "Down payment", value: downPaymentRate, direction: "negative" },
+      { label: "Debt-to-income", value: dti, direction: "negative" },
+      { label: "Monthly surplus", value: monthlySurplus, direction: "positive" }
+    ]
+  };
+}
+
 function App() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("clarifi_theme");
+    if (saved === "dark" || saved === "light") return saved;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("clarifi_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === "light" ? "dark" : "light"));
+  };
 
   const [activeSection, setActiveSection] = useState("readiness");
   const [scenario, setScenario] = useState<ScenarioInput>(initialScenario);
@@ -137,6 +212,7 @@ function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
+  const [hoveredExpenseKey, setHoveredExpenseKey] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -205,7 +281,10 @@ function App() {
         }
       } catch (error) {
         console.warn(error);
-        setApiOnline(false);
+        if (!ignore) {
+          setScore(calculateLocalScore(scenario));
+          setApiOnline(false);
+        }
       }
     }
 
@@ -359,7 +438,12 @@ function App() {
     return (
       <>
         {showAuth && <AuthModal onSuccess={onAuthSuccess} onClose={() => setShowAuth(false)} />}
-        <Landing onSignIn={() => setShowAuth(true)} onDemo={() => navigate("/demo")} />
+        <Landing 
+          onSignIn={() => setShowAuth(true)} 
+          onDemo={() => navigate("/demo")} 
+          theme={theme}
+          toggleTheme={toggleTheme}
+        />
       </>
     );
   }
@@ -379,8 +463,10 @@ function App() {
     {showOnboarding && authUser && <Onboarding userName={authUser.name} onComplete={onOnboardingComplete} />}
     <div className="app-shell">
       <aside className="sidebar" aria-label="Primary navigation">
-        <div className="brand-mark">
-          <span className="brand-symbol">C</span>
+        <div className="brand-mark" onClick={() => navigate("/")} style={{ cursor: "pointer" }} title="Go to landing page">
+          <span className="brand-symbol">
+            <img src="/logo.png" alt="ClariFi Logo" />
+          </span>
           <div>
             <p className="brand-name">ClariFi</p>
             <p className="brand-caption">AI-Guided Finance</p>
@@ -406,6 +492,25 @@ function App() {
             );
           })}
         </nav>
+
+        <div className="theme-toggle-container">
+          <span className="theme-toggle-label">
+            {theme === "light" ? <Sun size={14} style={{ color: "#f4c95d" }} /> : <Moon size={14} style={{ color: "#60a5fa" }} />}
+            <span>Theme</span>
+          </span>
+          <label className="theme-toggle-switch" htmlFor="themeCheckbox" title="Toggle Light/Dark Theme">
+            <input
+              id="themeCheckbox"
+              type="checkbox"
+              checked={theme === "dark"}
+              onChange={toggleTheme}
+            />
+            <span className="theme-toggle-slider">
+              <Sun size={10} style={{ color: "rgba(255, 255, 255, 0.4)" }} />
+              <Moon size={10} style={{ color: "rgba(255, 255, 255, 0.4)" }} />
+            </span>
+          </label>
+        </div>
 
         <div className="profile-strip">
           <span className="profile-dot" />
@@ -514,7 +619,7 @@ function App() {
             <article className="metric-tile">
               <span className="metric-label">Approval likelihood</span>
               <strong>{percent.format(score.approvalLikelihood)}</strong>
-              <small>{score.mode}</small>
+              <small>{score.mode === "browser-fallback" ? "local estimate" : score.mode}</small>
             </article>
           </div>
         </section>
@@ -544,10 +649,21 @@ function App() {
               </strong>
             </div>
             <div className="budget-layout">
-              <ExpenseDonut scenario={scenario} score={score} />
+              <ExpenseDonut
+                scenario={scenario}
+                score={score}
+                hoveredKey={hoveredExpenseKey}
+                onHoverChange={setHoveredExpenseKey}
+              />
               <div className="mini-slider-stack">
                 {(["food", "transport", "lifestyle", "investing"] as const).map(key => (
-                  <div className="mini-range-row" key={key}>
+                  <div
+                    className={`mini-range-row${hoveredExpenseKey === key ? " row-highlighted" : ""}`}
+                    key={key}
+                    onMouseEnter={() => setHoveredExpenseKey(key)}
+                    onMouseLeave={() => setHoveredExpenseKey(null)}
+                    onClick={() => setHoveredExpenseKey(hoveredExpenseKey === key ? null : key)}
+                  >
                     <div className="range-header">
                       <span className="range-label-text" style={{ textTransform: "capitalize" }}>{key}</span>
                       <label className="value-input-wrap">
@@ -773,6 +889,18 @@ function App() {
             </div>
           </div>
         </section>
+
+        <footer className="dashboard-footer" style={{
+          padding: '24px 0 32px 0',
+          textAlign: 'center',
+          borderTop: '1px solid var(--line)',
+          marginTop: '40px',
+          color: 'var(--muted)',
+          fontSize: '0.85rem',
+          opacity: 0.8
+        }}>
+          <p>© 2026 ClariFi. All rights reserved. &bull; Created by Lalitha, <a href="https://pranavmanimaran.vercel.app" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Pranav</a>, and <a href="https://vandanacm.github.io/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Vandana</a></p>
+        </footer>
 
         <div className={`agent-float${agentOpen ? " open" : ""}`}>
           <button
