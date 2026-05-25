@@ -194,7 +194,3 @@ It removes leakage-prone fields such as `interest_rate`, excludes sensitive demo
 | `ExpenseDonut` | Spending breakdown | Static |
 | `HmdaScatter` | Loan amount vs. income (HMDA) | Static |
 | `CalibrationChart` | Model predicted vs. actual approval rate | Static |
-
-## Progress Report
-
-`team07progress.pdf` — Team 07 progress report (May 2026).
