@@ -142,14 +142,13 @@ textarea::placeholder {
 
 .app-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 256px minmax(0, 1fr);
-  overflow-x: hidden;
 }
 
 .sidebar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 256px;
   height: 100vh;
   padding: 24px 18px;
   background: var(--navy);
@@ -157,6 +156,8 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 28px;
+  overflow-y: auto;
+  z-index: 100;
 }
 
 .brand-mark,
@@ -263,9 +264,9 @@ textarea::placeholder {
 }
 
 .dashboard {
+  margin-left: 256px;
   padding: 28px;
   max-width: 1520px;
-  width: 100%;
   min-width: 0;
   overflow-x: hidden;
 }
@@ -422,7 +423,16 @@ h2 {
   border: 1px solid var(--card-border);
   background: var(--card-bg);
   box-shadow: var(--shadow);
-  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease,
+              box-shadow 0.3s ease, color 0.3s ease, transform 0.2s ease;
+}
+
+.score-panel:hover,
+.analysis-panel:hover,
+.finance-card:hover,
+.metric-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.18);
 }
 
 .score-panel {
@@ -1355,10 +1365,15 @@ input[type="range"] {
     grid-template-columns: 1fr;
   }
 
+  .dashboard {
+    margin-left: 0;
+  }
+
   .sidebar {
     position: sticky;
     top: 0;
     z-index: 100;
+    width: 100%;
     height: auto;
     padding: 12px 18px;
     background: var(--navy);
