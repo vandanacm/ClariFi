@@ -186,6 +186,7 @@ function App() {
   const [agentLoading, setAgentLoading] = useState(false);
   const [apiOnline, setApiOnline] = useState(false);
   const [modelArtifactPresent, setModelArtifactPresent] = useState(false);
+  const [modelLoaded, setModelLoaded] = useState(false);
   const [openRouterConfigured, setOpenRouterConfigured] = useState(false);
   const [openRouterModel, setOpenRouterModel] = useState<string | null>(null);
   const [hmdaChartRows, setHmdaChartRows] = useState(48);
@@ -243,6 +244,7 @@ function App() {
 
       setApiOnline(Boolean(health?.ok));
       setModelArtifactPresent(Boolean(health?.modelArtifactPresent));
+      setModelLoaded(Boolean(health?.modelLoaded));
       setOpenRouterConfigured(Boolean(health?.openRouterConfigured));
       setOpenRouterModel(health?.openRouterModel ?? null);
       setHmdaChartRows(health?.hmdaChart?.scatterRows ?? hmdaData?.source?.scatterRows ?? 48);
@@ -324,7 +326,6 @@ function App() {
     savings: Math.max(score.monthlySurplus + scenario.expenses.investing, 0)
   }), [scenario, score]);
 
-  const modelDrivers = (model?.features ?? []).slice(0, 4);
   const markets = hmda ? Object.keys(hmda.markets) : ["Sacramento", "Alameda", "San Diego", "Los Angeles"];
   const market = hmda?.markets[scenario.market];
 
@@ -538,7 +539,11 @@ function App() {
               <span className={`status-pill backend-status ${apiOnline ? "" : "alt"}`}>
                 {apiOnline
                   ? [
-                      isModelScore(score) ? "XGBoost live" : modelArtifactPresent ? "Model loading" : "No model",
+                      isModelScore(score) || modelLoaded
+                        ? "XGBoost live"
+                        : modelArtifactPresent
+                          ? "Model loading"
+                          : "No model",
                       openRouterConfigured && openRouterModel
                         ? openRouterModel.split("/").pop()?.replace(":free", "") ?? "LLM"
                         : null
@@ -599,9 +604,11 @@ function App() {
             {" · "}
             Scoring: {isModelScore(score)
               ? `HMDA XGBoost · ${modelTrainingRows?.toLocaleString() ?? "58k"} CA training rows`
-              : modelArtifactPresent
-                ? "XGBoost artifact present — waiting for score"
-                : "XGBoost model not loaded (add joblib from Colab)"}
+              : modelLoaded
+                ? "XGBoost loaded — scoring…"
+                : modelArtifactPresent
+                  ? "XGBoost artifact present — restart API if score stays empty"
+                  : "XGBoost model not loaded (add joblib from Colab)"}
             {" · "}
             Store: {databaseMode === "mongodb" && databaseConnected ? "MongoDB Atlas" : "local JSON"}
             {" · "}
@@ -970,36 +977,6 @@ function App() {
             {model?.note && (
               <p className="model-note"><AlertTriangle size={15} /> {model.note}</p>
             )}
-          </article>
-
-          <article className="analysis-panel">
-            <div className="panel-header">
-              <div>
-                <p className="panel-kicker">SHAP drivers</p>
-                <h2>Top model signals</h2>
-                <p className="panel-note">
-                  Global feature importance from the trained HMDA XGBoost model (exported from the Colab notebook): which
-                  loan attributes most often pushed approvals up or down in training.
-                </p>
-                <p className="panel-note">
-                  Longer bars = stronger average influence across all training rows. This describes the model in general,
-                  not a breakdown of your personal application.
-                </p>
-              </div>
-            </div>
-            <div className="driver-list">
-              {modelDrivers.map(feature => (
-                <div className="driver-row" key={feature.feature}>
-                  <header>
-                    <span>{feature.label}</span>
-                    <strong>{feature.coefficient > 0 ? "+" : ""}{compact.format(feature.coefficient)} SHAP</strong>
-                  </header>
-                  <div className="bar-track">
-                    <div className={`bar-fill ${feature.direction}`} style={{ width: `${Math.max(feature.magnitude / (modelDrivers[0]?.magnitude ?? 1), 0.08) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
           </article>
 
           <article className="analysis-panel wide-panel">

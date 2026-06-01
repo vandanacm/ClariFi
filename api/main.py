@@ -71,7 +71,7 @@ from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from scripts.scenario_inference import build_scenario_features, load_inference_config
+from scripts.scenario_inference import build_scenario_features, features_dataframe, load_inference_config
 
 try:
     import joblib
@@ -87,6 +87,7 @@ except Exception:  # pragma: no cover - optional until API deps are installed
 
 MONGO_CLIENT = None
 MODEL_CACHE: Any = None
+MODEL_LOAD_ERROR: str | None = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -112,17 +113,34 @@ app.add_middleware(
 )
 
 
+def load_model_cache() -> bool:
+    """Load the calibrated XGBoost pipeline into memory. Returns True on success."""
+    global MODEL_CACHE, MODEL_LOAD_ERROR
+    MODEL_LOAD_ERROR = None
+    if joblib is None or pd is None:
+        MODEL_LOAD_ERROR = "Install joblib and pandas for ML scoring."
+        MODEL_CACHE = None
+        return False
+    if not MODEL_PATH.exists():
+        MODEL_LOAD_ERROR = f"Missing model file: {MODEL_PATH.name}"
+        MODEL_CACHE = None
+        return False
+    try:
+        MODEL_CACHE = joblib.load(MODEL_PATH)
+        return True
+    except Exception as exc:
+        MODEL_LOAD_ERROR = str(exc)
+        MODEL_CACHE = None
+        return False
+
+
 @app.on_event("startup")
 def startup_mongo_client() -> None:
     """Initialize MongoClient and cache ML artifacts when available."""
-    global MONGO_CLIENT, MODEL_CACHE
+    global MONGO_CLIENT
     if MONGODB_URI and MongoClient is not None:
         MONGO_CLIENT = MongoClient(MONGODB_URI)
-    if joblib is not None and MODEL_PATH.exists():
-        try:
-            MODEL_CACHE = joblib.load(MODEL_PATH)
-        except Exception:
-            MODEL_CACHE = None
+    load_model_cache()
 
 
 @app.on_event("shutdown")
@@ -413,7 +431,8 @@ def _predict_scenario_probability(scenario: ScenarioInput) -> float | None:
         return None
     features, _mode = build_scenario_features(scenario)
     try:
-        return float(MODEL_CACHE.predict_proba(pd.DataFrame([features]))[:, 1][0])
+        frame = features_dataframe(features, MODEL_CACHE)
+        return float(MODEL_CACHE.predict_proba(frame)[:, 1][0])
     except Exception:
         return None
 
@@ -674,9 +693,13 @@ def model_score(scenario: ScenarioInput) -> dict[str, Any]:
             "XGBoost model file missing. Add public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib from Colab.",
         )
     try:
-        probability = float(MODEL_CACHE.predict_proba(pd.DataFrame([budget["features"]]))[:, 1][0])
-    except Exception:
-        return _model_unavailable(scenario, "Could not run the trained model on this scenario.")
+        frame = features_dataframe(budget["features"], MODEL_CACHE)
+        probability = float(MODEL_CACHE.predict_proba(frame)[:, 1][0])
+    except Exception as exc:
+        return _model_unavailable(
+            scenario,
+            f"Could not run the trained model on this scenario ({exc}).",
+        )
     report_path = PUBLIC_DATA / "model_report.json"
     threshold = 0.9
     if report_path.exists():
@@ -708,13 +731,16 @@ def health() -> dict[str, Any]:
     db_status = _database_status()
     model_training = _model_training_meta()
     inference_config = load_inference_config()
+    scoring_ready = MODEL_CACHE is not None
     return {
         "ok": True,
         "name": "ClariFi API",
         "stack": ["FastAPI", "React", "TypeScript", "Vite", "D3", "MongoDB-ready"],
         "modelArtifactPresent": model_training["artifactPresent"],
+        "modelLoaded": scoring_ready,
+        "modelLoadError": MODEL_LOAD_ERROR,
         "inferenceConfigPresent": inference_config is not None,
-        "scoringPipeline": "notebook-export" if inference_config else "synthetic-local",
+        "scoringPipeline": "calibrated-xgboost" if scoring_ready else "unavailable",
         "openRouterConfigured": bool(OPENROUTER_API_KEY),
         "openRouterModel": OPENROUTER_MODEL if OPENROUTER_API_KEY else None,
         "anthropicConfigured": bool(ANTHROPIC_API_KEY),

@@ -140,8 +140,9 @@ For the next MongoDB + ML service buildout, see [Backend + ML Integration Plan](
 
 For live model inference, copy these Colab artifacts into `public/data/model_outputs/`:
 
-- `hmda_2025_xgboost_calibrated_pipeline.joblib`
-- `hmda_2025_xgboost_raw_pipeline.joblib`
+- `hmda_2025_xgboost_calibrated_pipeline.joblib` (required)
+- `scenario_inference_config.json` (required for slider scoring)
+- `public/data/model_report.json` (calibration chart in UI)
 
 ## Data Pipeline
 
@@ -165,7 +166,13 @@ The course model pipeline is the HMDA notebook:
 jupyter notebook notebooks/hmda_2025_xgboost_shap.ipynb
 ```
 
-It removes leakage-prone fields such as `interest_rate`, excludes sensitive demographic fields from scoring, trains/tunes XGBoost, calibrates probabilities, generates SHAP summaries, and exports dashboard-ready model reports.
+It removes leakage-prone fields such as `interest_rate`, excludes sensitive demographic fields from scoring, trains/tunes XGBoost, calibrates probabilities, generates SHAP summaries, and exports dashboard-ready artifacts:
+
+- `public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib`
+- `public/data/model_outputs/scenario_inference_config.json` (API feature alignment)
+- `public/data/model_report.json`
+
+After copying artifacts from Colab, restart the API (`npm run dev:api`). Optionally rebuild the inference config from the HMDA CSV with `npm run export:inference-config`.
 
 ## System Architecture
 

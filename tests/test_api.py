@@ -45,14 +45,17 @@ def test_health_reports_hmda_meta() -> None:
     assert payload["ok"] is True
     assert payload["hmdaChart"]["scatterRows"] > 48
     assert payload["hmdaChart"]["rawRows"] is not None
+    assert "modelLoaded" in payload
+    assert "modelLoadError" in payload
+    if payload["modelArtifactPresent"]:
+        assert payload["scoringPipeline"] in {"calibrated-xgboost", "unavailable"}
 
 
 @pytest.mark.skipif(not MODEL_PATH.exists(), reason="joblib artifact not present")
 def test_model_score_when_artifact_present() -> None:
     import api.main as main_module
-    import joblib
 
-    main_module.MODEL_CACHE = joblib.load(MODEL_PATH)
+    assert main_module.load_model_cache() is True
     score = model_score(ScenarioInput())
     assert score["mode"] == "calibrated-xgboost"
     assert score["modelReady"] is True
@@ -62,12 +65,18 @@ def test_model_score_when_artifact_present() -> None:
     assert 0 <= score["approvalLikelihood"] <= 1
 
 
+@pytest.mark.skipif(not MODEL_PATH.exists(), reason="joblib artifact not present")
 def test_score_endpoint_returns_probability() -> None:
+    import api.main as main_module
+
+    main_module.load_model_cache()
     response = client.post("/api/mortgage/score", json=ScenarioInput().model_dump())
     assert response.status_code == 200
     payload = response.json()
-    assert "score" in payload
-    assert "approvalLikelihood" in payload
+    assert payload["mode"] == "calibrated-xgboost"
+    assert payload["modelReady"] is True
+    assert payload["score"] is not None
+    assert payload["approvalLikelihood"] is not None
 
 
 def test_upload_rejects_invalid_amounts() -> None:

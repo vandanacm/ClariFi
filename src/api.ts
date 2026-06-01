@@ -58,6 +58,10 @@ export const api = {
     ok: boolean;
     stack: string[];
     modelArtifactPresent: boolean;
+    modelLoaded?: boolean;
+    modelLoadError?: string | null;
+    inferenceConfigPresent?: boolean;
+    scoringPipeline?: string;
     openRouterConfigured?: boolean;
     openRouterModel?: string | null;
     anthropicConfigured?: boolean;

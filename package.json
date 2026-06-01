@@ -12,6 +12,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "build:data": ".venv/bin/python scripts/process_hmda_mlar.py",
+    "export:inference-config": ".venv/bin/python scripts/export_scenario_inference_config.py",
     "test:api": ".venv/bin/python -m pytest tests/test_api.py -q",
     "start": "vite --host 127.0.0.1"
   },

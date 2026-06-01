@@ -155,3 +155,14 @@ def build_scenario_features(scenario: Any) -> tuple[dict[str, Any], str]:
     if config:
         return scenario_features_from_config(scenario, config), "notebook-export"
     return scenario_features_legacy(scenario), "synthetic-local"
+
+
+def features_dataframe(features: dict[str, Any], model: Any | None = None):
+    """Build a one-row DataFrame with columns ordered for the sklearn pipeline."""
+    import pandas as pd
+
+    if model is not None and hasattr(model, "feature_names_in_"):
+        columns = list(model.feature_names_in_)
+        row = {col: features.get(col) for col in columns}
+        return pd.DataFrame([row], columns=columns)
+    return pd.DataFrame([features])
