@@ -1,4 +1,6 @@
 .DS_Store
+reports/
+.venv/
 node_modules/
 dist/
 *.tsbuildinfo

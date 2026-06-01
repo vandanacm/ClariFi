@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 import pytest
@@ -86,3 +87,74 @@ def test_upload_rejects_invalid_amounts() -> None:
         files={"file": ("bad.csv", csv_body, "text/csv")},
     )
     assert response.status_code == 400
+
+
+def test_auth_register_and_login() -> None:
+    email = f"test-{uuid.uuid4().hex[:8]}@clarifi.test"
+    password = "testpass123"
+
+    reg = client.post("/api/auth/register", json={"email": email, "password": password, "name": "Test User"})
+    assert reg.status_code == 200
+    reg_body = reg.json()
+    assert "token" in reg_body
+    assert len(reg_body["token"]) > 0
+
+    login = client.post("/api/auth/login", json={"email": email, "password": password})
+    assert login.status_code == 200
+    login_body = login.json()
+    assert "token" in login_body
+    assert len(login_body["token"]) > 0
+
+
+def test_save_and_list_scenarios() -> None:
+    email = f"test-{uuid.uuid4().hex[:8]}@clarifi.test"
+    reg = client.post("/api/auth/register", json={"email": email, "password": "testpass123"})
+    token = reg.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    payload = ScenarioInput(market="Sacramento", income=9000, debt=1200, savings=75000, price=520000).model_dump()
+    save_resp = client.post("/api/scenarios", json=payload, headers=headers)
+    assert save_resp.status_code == 200
+
+    list_resp = client.get("/api/scenarios", headers=headers)
+    assert list_resp.status_code == 200
+    data = list_resp.json()
+    assert "scenarios" in data
+    assert len(data["scenarios"]) >= 1
+    first = data["scenarios"][0]
+    assert "id" in first
+    assert "createdAt" in first
+    assert "input" in first
+    assert "result" in first
+
+
+def test_score_includes_drivers() -> None:
+    payload = ScenarioInput(market="Alameda", income=10000, debt=1500, savings=100000, price=650000).model_dump()
+    resp = client.post("/api/mortgage/score", json=payload)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "drivers" in body
+    assert len(body["drivers"]) >= 1
+    for driver in body["drivers"]:
+        assert "label" in driver
+        assert "value" in driver
+        assert "direction" in driver
+        assert driver["direction"] in {"positive", "negative"}
+    assert 0.0 <= body["dti"] <= 1.0
+    assert 0.0 <= body["downPaymentRate"] <= 1.0
+
+
+def test_counterfactual_structure() -> None:
+    # High DTI scenario should trigger a counterfactual suggestion
+    payload = ScenarioInput(market="Los Angeles", income=6000, debt=3000, savings=40000, price=750000).model_dump()
+    resp = client.post("/api/mortgage/score", json=payload)
+    assert resp.status_code == 200
+    body = resp.json()
+    if body.get("counterfactual"):
+        cf = body["counterfactual"]
+        assert "feature" in cf
+        assert "suggestion" in cf
+        assert "change" in cf
+        assert "newApproval" in cf
+        assert "newScore" in cf
+        assert "delta" in cf

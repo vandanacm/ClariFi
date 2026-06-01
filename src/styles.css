@@ -3029,3 +3029,104 @@ input:checked + .theme-toggle-slider:before {
   z-index: 1;
 }
 
+/* ── SHAP waterfall chart ───────────────────────────────────── */
+
+.shap-waterfall-chart {
+  width: 100%;
+  height: auto;
+  max-width: 520px;
+  display: block;
+}
+
+/* ── Save scenario button ───────────────────────────────────── */
+
+.save-scenario-btn {
+  margin-top: 14px;
+  width: 100%;
+  padding: 9px 0;
+  border-radius: 8px;
+  border: 1.5px solid var(--teal);
+  background: transparent;
+  color: var(--teal);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.save-scenario-btn:hover:not(:disabled) {
+  background: var(--teal);
+  color: #fff;
+}
+
+.save-scenario-btn.saved {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.save-scenario-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Scenario comparison section ────────────────────────────── */
+
+.compare-section {
+  padding: 28px 0 0 0;
+}
+
+.compare-header {
+  margin-bottom: 16px;
+}
+
+.compare-table-wrap {
+  overflow-x: auto;
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 10px 14px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+
+.compare-table th:first-child,
+.compare-table td:first-child {
+  text-align: left;
+}
+
+.compare-table thead th {
+  font-weight: 600;
+  color: var(--text);
+  background: var(--soft);
+  font-size: 0.8rem;
+}
+
+.compare-table thead th small {
+  display: block;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.compare-metric-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.compare-best {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.compare-table tbody tr:hover td {
+  background: var(--soft);
+}
+
