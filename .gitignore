@@ -2,6 +2,9 @@
 node_modules/
 dist/
 *.tsbuildinfo
+__pycache__/
+.pytest_cache/
+*.pyc
 vite.config.js
 vite.config.d.ts
 data/clarifi_store.json

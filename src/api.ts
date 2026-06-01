@@ -38,7 +38,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`${path} returned ${response.status}`);
+    let detail = `${path} returned ${response.status}`;
+    try {
+      const body = await response.json() as { detail?: string | Array<{ msg?: string }> };
+      if (typeof body.detail === "string") detail = body.detail;
+      else if (Array.isArray(body.detail)) detail = body.detail.map(item => item.msg ?? "").filter(Boolean).join("; ");
+    } catch {}
+    throw new Error(detail);
   }
 
   return response.json() as Promise<T>;
@@ -48,7 +54,23 @@ export const api = {
   setToken,
   getToken,
   clearToken,
-  health: () => request<{ ok: boolean; stack: string[]; modelArtifactPresent: boolean }>("/api/health"),
+  health: () => request<{
+    ok: boolean;
+    stack: string[];
+    modelArtifactPresent: boolean;
+    openRouterConfigured?: boolean;
+    openRouterModel?: string | null;
+    anthropicConfigured?: boolean;
+    hmdaChart?: { scatterRows: number; rawRows?: number; countyCount?: number; sourceName?: string | null };
+    modelTraining?: {
+      artifactPresent: boolean;
+      rowsTotal?: number;
+      testAuc?: number;
+      bestThreshold?: number;
+    };
+    database?: string;
+    databaseStatus?: { mode: string; connected: boolean; database?: string; error?: string };
+  }>("/api/health"),
   model: () => request<ModelReport>("/api/model"),
   hmda: () => request<HmdaModel>("/api/hmda"),
   benchmarks: () => request<BenchmarkModel>("/api/benchmarks"),

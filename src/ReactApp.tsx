@@ -10,12 +10,20 @@ import {
   CalibrationChart,
   CashflowChart,
   ChoroplethMap,
+  CountyCalibrationChart,
   ExpenseDonut,
   HmdaScatter,
   IncomeHistogram,
   RiskSurface
 } from "./charts";
-import type { BenchmarkModel, FinanceSummary, HmdaModel, ModelReport, ScenarioInput, ScoreResult } from "./types";
+import type {
+  BenchmarkModel,
+  FinanceSummary,
+  HmdaModel,
+  ModelReport,
+  ScenarioInput,
+  ScoreResult
+} from "./types";
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -32,6 +40,15 @@ const compact = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 3
 });
 
+function formatExplainerLabel(mode: string, loading: boolean): string {
+  if (loading) return "Thinking…";
+  if (mode === "openrouter-rate-limited") return "OpenRouter · rate limited";
+  if (mode === "rule-based") return "Template · LLM offline";
+  if (mode === "offline") return "Offline";
+  if (mode.startsWith("openrouter/")) return `OpenRouter · ${mode.replace("openrouter/", "")}`;
+  return mode;
+}
+
 const initialScenario: ScenarioInput = {
   market: "Sacramento",
   income: 9400,
@@ -46,20 +63,36 @@ const initialScenario: ScenarioInput = {
   }
 };
 
-const fallbackScore: ScoreResult = {
-  mode: "browser-fallback",
-  score: 72,
-  approvalLikelihood: 0.68,
-  monthlyHousing: 2964,
-  monthlySurplus: 1661,
-  dti: 0.448,
-  downPaymentRate: 0.146,
-  drivers: [
-    { label: "Down payment", value: 0.146, direction: "negative" },
-    { label: "Debt-to-income", value: 0.448, direction: "negative" },
-    { label: "Monthly surplus", value: 1661, direction: "positive" }
-  ]
-};
+function scenarioBudgetContext(scenario: ScenarioInput): ScoreResult {
+  const monthlyHousing = Math.round((scenario.price - scenario.savings) * 0.0062);
+  const flexible =
+    scenario.expenses.food +
+    scenario.expenses.transport +
+    scenario.expenses.lifestyle +
+    scenario.expenses.investing;
+  const monthlySurplus = Math.round(scenario.income - scenario.debt - monthlyHousing - flexible);
+  const dti = Number(((scenario.debt + monthlyHousing) / Math.max(scenario.income, 1)).toFixed(3));
+  const downPaymentRate = Number((scenario.savings / Math.max(scenario.price, 1)).toFixed(3));
+  return {
+    mode: "pending",
+    modelReady: false,
+    score: null,
+    approvalLikelihood: null,
+    monthlyHousing,
+    monthlySurplus,
+    dti,
+    downPaymentRate,
+    drivers: [
+      { label: "Down payment", value: downPaymentRate, direction: downPaymentRate >= 0.18 ? "positive" : "negative" },
+      { label: "Debt-to-income", value: dti, direction: dti > 0.36 ? "negative" : "positive" },
+      { label: "Monthly surplus", value: monthlySurplus, direction: monthlySurplus >= 0 ? "positive" : "negative" }
+    ]
+  };
+}
+
+function isModelScore(score: ScoreResult) {
+  return score.modelReady === true || score.mode === "calibrated-xgboost";
+}
 
 function classForScore(score: number) {
   if (score >= 78) return "Ready to compete";
@@ -77,8 +110,14 @@ function scoreNarrative(score: ScoreResult) {
   return "This profile is close to approved-borrower patterns for the selected market.";
 }
 
-function metricText(value?: number | null, formatter: (value: number) => string = compact.format) {
-  return value === null || value === undefined ? "n/a" : formatter(value);
+async function fetchStaticJson<T>(path: string): Promise<T | null> {
+  try {
+    const response = await fetch(path);
+    if (!response.ok) return null;
+    return response.json() as Promise<T>;
+  } catch {
+    return null;
+  }
 }
 
 interface AuthUser {
@@ -114,66 +153,6 @@ function hintsFromFinance(summary: FinanceSummary): Partial<ScenarioInput> {
   return hints;
 }
 
-function calculateLocalScore(scenario: ScenarioInput): ScoreResult {
-  const price = Number(scenario.price);
-  const savings = Number(scenario.savings);
-  const income = Number(scenario.income);
-  const debt = Number(scenario.debt);
-  
-  const monthlyHousing = Math.round((price - savings) * 0.0062);
-  const flexibleExpenses = Number(scenario.expenses.food) + 
-                           Number(scenario.expenses.transport) + 
-                           Number(scenario.expenses.lifestyle) + 
-                           Number(scenario.expenses.investing);
-  const monthlySurplus = Math.round(income - debt - monthlyHousing - flexibleExpenses);
-  
-  const dti = Number(((debt + monthlyHousing) / income).toFixed(3));
-  const downPaymentRate = Number((savings / price).toFixed(3));
-  
-  // Calculate a realistic local score
-  const incomeMedian = 7800; // Median Sacramento income
-  const priceMedian = 490000;
-  const incomeFit = income / incomeMedian;
-  const priceFit = priceMedian / price;
-  
-  const clampVal = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
-  
-  const rawScore = 34 +
-    downPaymentRate * 118 +
-    (1 - Math.abs(dti - 0.32)) * 26 +
-    incomeFit * 17 +
-    priceFit * 11 -
-    Math.max(dti - 0.36, 0) * 360 +
-    clampVal(monthlySurplus / 1800, -8, 9);
-    
-  const score = Math.round(clampVal(rawScore, 18, 96));
-  
-  const approvalBase = 0.52;
-  const approval = Number(clampVal(
-    approvalBase +
-      (score - 70) / 180 +
-      (downPaymentRate - 0.15) * 0.8 -
-      Math.max(dti - 0.36, 0) * 1.2,
-    0.18,
-    0.94
-  ).toFixed(3));
-
-  return {
-    mode: "local estimate",
-    score,
-    approvalLikelihood: approval,
-    monthlyHousing,
-    monthlySurplus,
-    dti,
-    downPaymentRate,
-    drivers: [
-      { label: "Down payment", value: downPaymentRate, direction: "negative" },
-      { label: "Debt-to-income", value: dti, direction: "negative" },
-      { label: "Monthly surplus", value: monthlySurplus, direction: "positive" }
-    ]
-  };
-}
-
 function App() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -195,7 +174,7 @@ function App() {
 
   const [activeSection, setActiveSection] = useState("readiness");
   const [scenario, setScenario] = useState<ScenarioInput>(initialScenario);
-  const [score, setScore] = useState<ScoreResult>(fallbackScore);
+  const [score, setScore] = useState<ScoreResult>(() => scenarioBudgetContext(initialScenario));
   const [hmda, setHmda] = useState<HmdaModel | null>(null);
   const [benchmarks, setBenchmarks] = useState<BenchmarkModel | null>(null);
   const [model, setModel] = useState<ModelReport | null>(null);
@@ -206,6 +185,16 @@ function App() {
   const [agentQuestion, setAgentQuestion] = useState("");
   const [agentLoading, setAgentLoading] = useState(false);
   const [apiOnline, setApiOnline] = useState(false);
+  const [modelArtifactPresent, setModelArtifactPresent] = useState(false);
+  const [openRouterConfigured, setOpenRouterConfigured] = useState(false);
+  const [openRouterModel, setOpenRouterModel] = useState<string | null>(null);
+  const [hmdaChartRows, setHmdaChartRows] = useState(48);
+  const [hmdaRawRows, setHmdaRawRows] = useState<number | null>(null);
+  const [modelTrainingRows, setModelTrainingRows] = useState<number | null>(null);
+  const [databaseConnected, setDatabaseConnected] = useState(false);
+  const [databaseMode, setDatabaseMode] = useState("local-json");
+  const [selectedHmdaCounty, setSelectedHmdaCounty] = useState<string | null>(null);
+  const [brushedIncome, setBrushedIncome] = useState<number | null>(null);
   const [uploadStatus, setUploadStatus] = useState("Upload CSV");
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(!!api.getToken());
@@ -218,49 +207,65 @@ function App() {
     let ignore = false;
 
     async function load() {
-      try {
-        const calls: Promise<unknown>[] = [
-          api.health(),
-          api.hmda(),
-          api.benchmarks(),
-          api.model(),
-          api.financeSummary()
-        ];
-        if (api.getToken()) {
-          calls.push(api.me().catch(() => { api.clearToken(); return null; }));
+      const settled = await Promise.allSettled([
+        api.health(),
+        api.hmda(),
+        api.benchmarks(),
+        api.model(),
+        api.financeSummary().catch(() => ({
+          transactionCount: 0,
+          monthlyIncomeObserved: 0,
+          monthlyOutflowObserved: 0,
+          netCashflowObserved: 0,
+          categoryTotals: {}
+        } satisfies FinanceSummary)),
+        ...(api.getToken() ? [api.me().catch(() => { api.clearToken(); return null; })] : [])
+      ]);
+
+      if (ignore) return;
+
+      const health = settled[0].status === "fulfilled" ? settled[0].value : null;
+      const hmdaData = settled[1].status === "fulfilled"
+        ? settled[1].value
+        : await fetchStaticJson<HmdaModel>("/data/hmda_processed.json");
+      const benchmarkData = settled[2].status === "fulfilled"
+        ? settled[2].value
+        : await fetchStaticJson<BenchmarkModel>("/data/bls_benchmarks.json");
+      const modelData = settled[3].status === "fulfilled"
+        ? settled[3].value
+        : await fetchStaticJson<ModelReport>("/data/model_report.json");
+      const financeData = settled[4].status === "fulfilled"
+        ? settled[4].value
+        : { transactionCount: 0, monthlyIncomeObserved: 0, monthlyOutflowObserved: 0, netCashflowObserved: 0, categoryTotals: {} } satisfies FinanceSummary;
+      const meData = settled[5]?.status === "fulfilled"
+        ? settled[5].value as { user: AuthUser } | null | undefined
+        : undefined;
+
+      setApiOnline(Boolean(health?.ok));
+      setModelArtifactPresent(Boolean(health?.modelArtifactPresent));
+      setOpenRouterConfigured(Boolean(health?.openRouterConfigured));
+      setOpenRouterModel(health?.openRouterModel ?? null);
+      setHmdaChartRows(health?.hmdaChart?.scatterRows ?? hmdaData?.source?.scatterRows ?? 48);
+      setHmdaRawRows(health?.hmdaChart?.rawRows ?? hmdaData?.source?.rawRows ?? null);
+      setModelTrainingRows(health?.modelTraining?.rowsTotal ?? modelData?.rows?.total ?? null);
+      setDatabaseMode(health?.databaseStatus?.mode ?? health?.database ?? "local-json");
+      setDatabaseConnected(Boolean(health?.databaseStatus?.connected ?? health?.database === "mongodb"));
+      if (hmdaData) setHmda(hmdaData);
+      if (benchmarkData) setBenchmarks(benchmarkData);
+      if (modelData) setModel(modelData);
+      setFinanceSummary(financeData);
+      if (meData?.user) {
+        setAuthUser(meData.user);
+        const hints = hintsFromFinance(financeData);
+        if (Object.keys(hints).length > 0) {
+          setScenario(current => ({
+            ...current,
+            ...hints,
+            expenses: hints.expenses ?? current.expenses
+          }));
         }
-        const [health, hmdaData, benchmarkData, modelData, financeData, meData] = await Promise.all(calls) as [
-          Awaited<ReturnType<typeof api.health>>,
-          HmdaModel,
-          BenchmarkModel,
-          ModelReport,
-          FinanceSummary,
-          { user: AuthUser } | null | undefined
-        ];
-        if (ignore) return;
-        setApiOnline(health.ok);
-        setHmda(hmdaData);
-        setBenchmarks(benchmarkData);
-        setModel(modelData);
-        setFinanceSummary(financeData);
-        if (meData?.user) {
-          setAuthUser(meData.user);
-          // Apply real spending data to scenario for returning authenticated users
-          const hints = hintsFromFinance(financeData);
-          if (Object.keys(hints).length > 0) {
-            setScenario(current => ({
-              ...current,
-              ...hints,
-              expenses: hints.expenses ?? current.expenses
-            }));
-          }
-        }
-        setAuthLoading(false);
-      } catch (error) {
-        console.warn(error);
-        setApiOnline(false);
-        setAuthLoading(false);
       }
+      setAuthLoading(false);
     }
 
     load();
@@ -270,9 +275,13 @@ function App() {
   }, []);
 
   useEffect(() => {
-    let ignore = false;
+    setSelectedHmdaCounty(null);
+    setBrushedIncome(null);
+  }, [scenario.market]);
 
-    async function scoreScenario() {
+  useEffect(() => {
+    let ignore = false;
+    const timer = window.setTimeout(async () => {
       try {
         const result = await api.scoreMortgage(scenario);
         if (!ignore) {
@@ -282,19 +291,23 @@ function App() {
       } catch (error) {
         console.warn(error);
         if (!ignore) {
-          setScore(calculateLocalScore(scenario));
+          setScore({
+            ...scenarioBudgetContext(scenario),
+            mode: "model-unavailable",
+            modelReady: false,
+            message: "Could not reach the scoring API."
+          });
           setApiOnline(false);
         }
       }
-    }
+    }, 250);
 
-    scoreScenario();
     return () => {
       ignore = true;
+      window.clearTimeout(timer);
     };
   }, [scenario]);
 
-  // Reset to hardcoded demo values whenever entering /demo so it's always clean
   useEffect(() => {
     if (pathname === "/demo") {
       setScenario(initialScenario);
@@ -343,7 +356,6 @@ function App() {
       if (financeData.transactionCount === 0) {
         setShowOnboarding(true);
       } else {
-        // User has real transaction data — update scenario sliders to match
         const hints = hintsFromFinance(financeData);
         if (Object.keys(hints).length > 0) {
           setScenario(current => ({
@@ -353,7 +365,7 @@ function App() {
           }));
         }
       }
-    } catch { /* ignore */ }
+    } catch {}
   }
 
   function onOnboardingComplete(summary: import("./types").FinanceSummary | null, hints: Partial<import("./types").ScenarioInput>) {
@@ -395,10 +407,8 @@ function App() {
 
   function triggerHighlight(section: string) {
     setAgentHighlight(section);
-    // Scroll to the highlighted section
     const el = document.querySelector(`[data-section="${section}"]`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Remove highlight class after animation completes
     setTimeout(() => setAgentHighlight(null), 3000);
   }
 
@@ -408,7 +418,6 @@ function App() {
     try {
       const result = await api.uploadTransactions(file);
       setFinanceSummary(result.summary);
-      // Immediately update scenario sliders so metrics refresh without a manual page reload
       const hints = hintsFromFinance(result.summary);
       if (Object.keys(hints).length > 0) {
         setScenario(current => ({
@@ -431,7 +440,6 @@ function App() {
     { id: "model", label: "Model", icon: Database }
   ];
 
-  // Route: / — landing page (redirect to dashboard if already authenticated)
   if (pathname === "/" || pathname === "") {
     if (authLoading) return null;
     if (authUser) return <Navigate to="/dashboard" replace />;
@@ -448,13 +456,11 @@ function App() {
     );
   }
 
-  // Route: /dashboard — requires authentication
   if (pathname === "/dashboard") {
     if (authLoading) return null;
     if (!authUser) return <Navigate to="/" replace />;
   }
 
-  // /demo or /dashboard: render the dashboard shell
   const isDemo = pathname === "/demo";
 
   return (
@@ -530,7 +536,16 @@ function App() {
           <div className="header-actions">
             <div className="header-top-row">
               <span className={`status-pill backend-status ${apiOnline ? "" : "alt"}`}>
-                {apiOnline ? "FastAPI connected" : "Static fallback"}
+                {apiOnline
+                  ? [
+                      isModelScore(score) ? "XGBoost live" : modelArtifactPresent ? "Model loading" : "No model",
+                      openRouterConfigured && openRouterModel
+                        ? openRouterModel.split("/").pop()?.replace(":free", "") ?? "LLM"
+                        : null
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : "API offline"}
               </span>
               <div className="header-controls">
                 {authUser ? (
@@ -575,6 +590,27 @@ function App() {
           </div>
         )}
 
+        <div className="data-source-banner" role="note" aria-label="Runtime data sources">
+          <span className="data-source-badge">Sources</span>
+          <span className="data-source-copy">
+            HMDA charts: {hmdaRawRows
+              ? `${hmdaRawRows.toLocaleString()} CA applications (${hmdaChartRows.toLocaleString()} scatter sample)`
+              : `${hmdaChartRows}-row teaching sample`}
+            {" · "}
+            Scoring: {isModelScore(score)
+              ? `HMDA XGBoost · ${modelTrainingRows?.toLocaleString() ?? "58k"} CA training rows`
+              : modelArtifactPresent
+                ? "XGBoost artifact present — waiting for score"
+                : "XGBoost model not loaded (add joblib from Colab)"}
+            {" · "}
+            Store: {databaseMode === "mongodb" && databaseConnected ? "MongoDB Atlas" : "local JSON"}
+            {" · "}
+            Explainer: {openRouterConfigured && openRouterModel
+              ? `OpenRouter · ${openRouterModel.split("/").pop()?.replace(":free", "") ?? openRouterModel}`
+              : "template when LLM offline"}
+          </span>
+        </div>
+
         <section className={`score-band app-section${agentHighlight === "readiness" ? " section-highlighted" : ""}`} data-section="readiness" aria-label="Readiness summary">
           <div className="score-panel">
             <div className="score-ring" aria-label="Mortgage readiness score">
@@ -585,18 +621,42 @@ function App() {
                   cx="70"
                   cy="70"
                   r="56"
-                  style={{ strokeDashoffset: 352 - (score.score / 100) * 352 }}
+                  style={{
+                    strokeDashoffset:
+                      isModelScore(score) && score.score != null
+                        ? 352 - (score.score / 100) * 352
+                        : 352
+                  }}
                 />
               </svg>
               <div className="score-center">
-                <span>{score.score}</span>
+                <span>
+                  {isModelScore(score) && score.score != null ? score.score : "—"}
+                </span>
                 <small>/100</small>
               </div>
             </div>
             <div className="score-copy">
               <p className="panel-kicker">Mortgage readiness</p>
-              <h2>{classForScore(score.score)}</h2>
+              <h2>
+                {isModelScore(score) && score.score != null
+                  ? classForScore(score.score)
+                  : "Model score pending"}
+              </h2>
               <p>{scoreNarrative(score)}</p>
+              {!isModelScore(score) && score.message && (
+                <p className="panel-note model-unavailable-note" role="status">
+                  {score.message}
+                </p>
+              )}
+              <p className="panel-note">
+                The 0–100 score is the calibrated HMDA XGBoost approval probability for your scenario (income, debt,
+                savings, home price, and county). Cash-flow tiles use the same sliders only.
+              </p>
+              <p className="panel-note">
+                <strong>Approval likelihood</strong> is the same model output, shown as a percent. For learning only —
+                not a credit decision, prequalification, or legal advice.
+              </p>
             </div>
           </div>
 
@@ -618,8 +678,12 @@ function App() {
             </article>
             <article className="metric-tile">
               <span className="metric-label">Approval likelihood</span>
-              <strong>{percent.format(score.approvalLikelihood)}</strong>
-              <small>{score.mode === "browser-fallback" ? "local estimate" : score.mode}</small>
+              <strong>
+                {isModelScore(score) && score.approvalLikelihood != null
+                  ? percent.format(score.approvalLikelihood)
+                  : "—"}
+              </strong>
+              <small>{isModelScore(score) ? "HMDA XGBoost model" : "Model not available"}</small>
             </article>
           </div>
         </section>
@@ -630,6 +694,22 @@ function App() {
               <div>
                 <p className="panel-kicker">D3 cashflow lens</p>
                 <h2>Where monthly income goes</h2>
+                <p className="panel-note">
+                  Monthly waterfall from your scenario: green = money in, red = housing, debt, and flexible spending out;
+                  the last bar is surplus (income left after those costs).
+                </p>
+                <p className="panel-note">
+                  Hover any bar for the exact amount. Values follow the sliders below unless a CSV upload pre-filled them.
+                </p>
+                {financeSummary && financeSummary.monthsObserved != null && financeSummary.monthsObserved > 0 && (
+                  <p className="panel-note">
+                    Upload context: averaged {financeSummary.monthsObserved} month{financeSummary.monthsObserved === 1 ? "" : "s"} of CSV data
+                    {financeSummary.monthlyIncomeObserved > 0
+                      ? ` · ${money.format(financeSummary.monthlyIncomeObserved)}/mo observed income`
+                      : ""}
+                    .
+                  </p>
+                )}
               </div>
               <span className={`status-pill ${score.monthlySurplus < 0 ? "danger" : ""}`}>
                 {score.monthlySurplus >= 0 ? "Positive buffer" : "Over budget"}
@@ -643,6 +723,13 @@ function App() {
               <div>
                 <p className="panel-kicker">Budget mixer</p>
                 <h2>Tune flexible spending</h2>
+                <p className="panel-note">
+                  Donut shows how your flexible monthly outflow splits across food, transport, lifestyle, and investing
+                  (center total excludes housing and debt, which are in the cashflow chart).
+                </p>
+                <p className="panel-note">
+                  Use sliders or type dollar amounts to run what-if budgets; surplus in the corner updates readiness above.
+                </p>
               </div>
               <strong className={`surplus-value ${score.monthlySurplus < 0 ? "negative" : ""}`}>
                 {money.format(score.monthlySurplus)}
@@ -704,6 +791,13 @@ function App() {
               <div>
                 <p className="panel-kicker">BLS peer benchmark</p>
                 <h2>Spending vs. similar households</h2>
+                <p className="panel-note">
+                  Compares your scenario spending to a Bureau of Labor Statistics peer group with a similar income band and region.
+                </p>
+                <p className="panel-note">
+                  Each row: gray bar = typical peer monthly spend, colored bar = your scenario. Savings above peer is positive;
+                  spending well above peer on needs may tighten your mortgage buffer.
+                </p>
               </div>
               <span className="status-pill muted">{benchmarks?.source.name ?? "Loading"}</span>
             </div>
@@ -724,6 +818,13 @@ function App() {
               <div>
                 <p className="panel-kicker">What-if simulator</p>
                 <h2>Adjust the buyer profile</h2>
+                <p className="panel-note">
+                  Main inputs for the whole dashboard: income, debt, savings, and target home price. Every chart and score
+                  on this page reacts to these sliders.
+                </p>
+                <p className="panel-note">
+                  Use the target market dropdown in the header to switch HMDA comparison regions (Sacramento, Alameda, etc.).
+                </p>
               </div>
               <span className="status-pill">Scenario synced</span>
             </div>
@@ -772,33 +873,84 @@ function App() {
           <article className="analysis-panel">
             <div className="panel-header">
               <div>
-                <p className="panel-kicker">California county readiness</p>
-                <h2>Approval likelihood by county</h2>
+                <p className="panel-kicker">HMDA approval by county</p>
+                <h2>Historical approval rate by county</h2>
+                <p className="panel-note">
+                  All 58 California counties are shown. Color = HMDA approval rate in our sample (red = lower, green = higher).
+                  Counties with very few local applications use a lighter shade and may show statewide average — see tooltip.
+                </p>
+                <p className="panel-note">
+                  Click any county to filter the charts below and jump to its primary market. Teal outline = selected.
+                </p>
               </div>
               <span className="status-pill muted">{hmda?.source.name ?? "Loading HMDA"}</span>
             </div>
-            {hmda && <ChoroplethMap hmda={hmda} scenario={scenario} />}
+            {hmda && (
+              <ChoroplethMap
+                hmda={hmda}
+                scenario={scenario}
+                selectedCounty={selectedHmdaCounty}
+                onCountySelect={setSelectedHmdaCounty}
+                onMarketSelect={marketName => updateScenario("market", marketName)}
+              />
+            )}
           </article>
 
           <article className="analysis-panel">
             <div className="panel-header">
               <div>
                 <p className="panel-kicker">HMDA borrower comparison</p>
-                <h2>Income vs. loan — {scenario.market}</h2>
+                <h2>Income vs. loan — {selectedHmdaCounty ?? scenario.market}</h2>
+                <p className="panel-note">
+                  Each dot is one past application in this market: horizontal axis = monthly income,
+                  vertical axis = loan amount. Teal = approved, pink = denied.
+                </p>
+                <p className="panel-note">
+                  <strong>Your profile</strong> marks your scenario from the sliders (income, price, savings).
+                  It is compared to peers — it is not your personal approval decision.
+                </p>
               </div>
               <span className="status-pill">{market ? money.format(market.priceMedian) : "n/a"} median</span>
             </div>
-            {hmda && <HmdaScatter hmda={hmda} scenario={scenario} />}
+            {selectedHmdaCounty && (
+              <button className="link-filter-btn" type="button" onClick={() => setSelectedHmdaCounty(null)}>
+                Clear county filter · {selectedHmdaCounty}
+              </button>
+            )}
+            {hmda && (
+              <HmdaScatter
+                hmda={hmda}
+                scenario={scenario}
+                selectedCounty={selectedHmdaCounty}
+                brushedIncome={brushedIncome}
+              />
+            )}
           </article>
 
           <article className="analysis-panel wide-panel">
             <div className="panel-header">
               <div>
                 <p className="panel-kicker">Income distribution</p>
-                <h2>Approved vs. denied applicants — {scenario.market}</h2>
+                <h2>Approved vs. denied — {selectedHmdaCounty ?? scenario.market}</h2>
+                <p className="panel-note">
+                  Each bar is a monthly-income band for past HMDA loan applications in this market.
+                  <strong> Teal (bottom)</strong> = applications that were <strong>approved</strong>.
+                  <strong> Red/pink (top)</strong> = applications that were <strong>denied</strong> (not your personal result).
+                </p>
+                <p className="panel-note">
+                  <strong>Teal line</strong> = your scenario income from the sliders. Hover a bar to see that income
+                  band’s approved / denied counts in the caption above the chart (gold dashed line when exploring).
+                </p>
               </div>
             </div>
-            {hmda && <IncomeHistogram hmda={hmda} scenario={scenario} />}
+            {hmda && (
+              <IncomeHistogram
+                hmda={hmda}
+                scenario={scenario}
+                selectedCounty={selectedHmdaCounty}
+                onBrushIncome={setBrushedIncome}
+              />
+            )}
           </article>
         </section>
 
@@ -806,19 +958,18 @@ function App() {
           <article className="analysis-panel">
             <div className="panel-header">
               <div>
-                <p className="panel-kicker">Model audit</p>
+                <p className="panel-kicker">About the model</p>
                 <h2>{model?.modelName ?? "Loading model"}</h2>
+                <p className="panel-note">
+                  Trained on California HMDA data and calibrated for teaching — not a credit decision. The charts below
+                  show what drives approvals in general and how well predictions match historical outcomes.
+                </p>
               </div>
               <span className="status-pill muted">HMDA 2025</span>
             </div>
-            <div className="model-meta">
-              <span>Rows</span><strong>{model ? model.rows.total.toLocaleString() : "n/a"}</strong>
-              <span>AUC</span><strong>{metricText(model?.metrics.testAuc)}</strong>
-              <span>Balanced accuracy</span><strong>{metricText(model?.metrics.balancedAccuracy, percent.format)}</strong>
-              <span>Brier score</span><strong>{metricText(model?.metrics.brierScore)}</strong>
-              <span>Denied recall</span><strong>{metricText(model?.metrics.denialRecall, percent.format)}</strong>
-            </div>
-            <p className="model-note"><AlertTriangle size={15} /> {model?.note}</p>
+            {model?.note && (
+              <p className="model-note"><AlertTriangle size={15} /> {model.note}</p>
+            )}
           </article>
 
           <article className="analysis-panel">
@@ -826,6 +977,14 @@ function App() {
               <div>
                 <p className="panel-kicker">SHAP drivers</p>
                 <h2>Top model signals</h2>
+                <p className="panel-note">
+                  Global feature importance from the trained HMDA XGBoost model (exported from the Colab notebook): which
+                  loan attributes most often pushed approvals up or down in training.
+                </p>
+                <p className="panel-note">
+                  Longer bars = stronger average influence across all training rows. This describes the model in general,
+                  not a breakdown of your personal application.
+                </p>
               </div>
             </div>
             <div className="driver-list">
@@ -848,6 +1007,14 @@ function App() {
               <div>
                 <p className="panel-kicker">Calibration</p>
                 <h2>Predicted vs. actual approval rates</h2>
+                <p className="panel-note">
+                  Each dot groups hold-out HMDA applications by predicted approval chance (horizontal) versus the true
+                  approval rate in that group (vertical).
+                </p>
+                <p className="panel-note">
+                  Points near the diagonal line are well calibrated; points far above or below it mean the model was
+                  over- or under-confident in that score range.
+                </p>
               </div>
             </div>
             {model && <CalibrationChart report={model} />}
@@ -858,8 +1025,16 @@ function App() {
               <div>
                 <p className="panel-kicker">Risk surface</p>
                 <h2>Approval likelihood across DTI and down payment</h2>
+                <p className="panel-note">
+                  Heatmap of estimated approval likelihood from your scenario math: horizontal = debt-to-income ratio,
+                  vertical = down-payment rate (savings ÷ target price).
+                </p>
+                <p className="panel-note">
+                  Greener cells = higher estimated approval in that combination. The teal <strong>You</strong> marker shows
+                  where your current scenario sits; it updates when you move the sliders.
+                </p>
               </div>
-              <span className="status-pill muted">Your position circled</span>
+              <span className="status-pill muted">Your position marked</span>
             </div>
             <RiskSurface score={score} />
           </article>
@@ -879,12 +1054,25 @@ function App() {
                 <p>The readiness score and approval likelihood are statistical estimates for educational purposes only — not a credit decision, prequalification, or legal advice. Contact a HUD-approved housing counselor for guidance.</p>
               </div>
               <div className="bias-item">
-                <strong>Protected attributes excluded</strong>
-                <p>Race, ethnicity, sex, and age are excluded from the scoring model. County-level approval patterns visible in the HMDA view may still reflect geographic disparities in historical lending.</p>
+                <strong>Excluded from the score</strong>
+                <p>
+                  Leakage fields: {(model?.featurePolicy?.excludedLeakageFields ?? ["interest_rate"]).join(", ")}.
+                  Fairness audit only (not scored): {(model?.featurePolicy?.fairnessAuditOnlyFields ?? ["applicant_age", "applicant_sex"]).join(", ")}.
+                  County-level HMDA patterns may still reflect geographic disparities in historical lending.
+                </p>
               </div>
               <div className="bias-item">
-                <strong>Model uncertainty</strong>
-                <p>Calibration is tuned to real approval rates, but the 60,000-row California sample may not represent all subgroups equally. Check the calibration chart for confidence in the predicted–actual alignment.</p>
+                <strong>Geographic calibration</strong>
+                <p>Predicted vs. actual approval rates by county (demo markets). Large gaps suggest the model may not transfer evenly across subgroups.</p>
+                {model?.countyCalibration && model.countyCalibration.length > 0 && (
+                  <>
+                    <p className="panel-note">
+                      Each county row: teal bar = actual approval share in evaluation data, blue bar = model prediction.
+                      <strong> n=</strong> is the number of loans in that county slice.
+                    </p>
+                    <CountyCalibrationChart rows={model.countyCalibration} />
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -915,12 +1103,23 @@ function App() {
             <div className="agent-float-panel">
               <div className="agent-float-header">
                 <div>
-                  <p className="panel-kicker">Explainer · {agentLoading ? "Thinking…" : agentMode}</p>
+                  <p className="panel-kicker">Explainer · {formatExplainerLabel(agentMode, agentLoading)}</p>
                   <h2>Ask ClariFi</h2>
                 </div>
                 <button className="agent-float-close" type="button" onClick={() => setAgentOpen(false)}>✕</button>
               </div>
               <div className="agent-float-body">
+                {!agentLoading && (agentMode === "offline" || agentMode === "rule-based" || agentMode === "openrouter-rate-limited") && (
+                  <p className="agent-template-notice" role="status">
+                    {agentMode === "offline"
+                      ? "API unreachable — start npm run dev:api in a second terminal, then refresh."
+                      : agentMode === "openrouter-rate-limited"
+                        ? "OpenRouter accepted your key but the free Llama model is rate-limited. Wait 10–30s and try again."
+                        : openRouterConfigured
+                          ? "OpenRouter is configured but the last call failed — often rate limits on the free model. Restart dev:api after .env changes, wait, and retry."
+                          : "No cloud LLM — set OPENROUTER_API_KEY in .env, run npm run dev:api, then refresh."}
+                  </p>
+                )}
                 <form
                   className="agent-input-row"
                   onSubmit={e => { e.preventDefault(); askAgent(agentQuestion || undefined); }}
@@ -953,7 +1152,10 @@ function App() {
                 </div>
                 {score.counterfactual && (
                   <div className="counterfactual-card">
-                    <p className="panel-kicker">Top improvement</p>
+                    <p className="panel-kicker">Top improvement{score.explanationMode === "model-perturbation" ? " (model what-if)" : ""}</p>
+                    <p className="panel-note">
+                      One feasible change the engine thinks would raise estimated approval the most (lower debt, more savings, or a smaller target price).
+                    </p>
                     <strong>{score.counterfactual.suggestion}</strong>
                     <span className="cf-delta">
                       Approval +{percent.format(score.counterfactual.delta)} → {percent.format(score.counterfactual.newApproval)}
@@ -961,7 +1163,12 @@ function App() {
                   </div>
                 )}
                 <div className="local-shap-list">
-                  <p className="panel-kicker" style={{ marginBottom: 6 }}>Local factor impact</p>
+                  <p className="panel-kicker" style={{ marginBottom: 6 }}>
+                    Local factor impact{score.explanationMode === "model-perturbation" ? " (model perturbation)" : ""}
+                  </p>
+                  <p className="panel-note">
+                    How nudging each part of <em>your</em> scenario would move estimated approval up or down. Positive = helpful for approval; negative = drag.
+                  </p>
                   {(score.localShap ?? score.drivers.map(d => ({
                     feature: d.label,
                     label: d.label,

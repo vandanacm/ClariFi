@@ -34,8 +34,10 @@ export type Counterfactual = {
 
 export type ScoreResult = {
   mode: string;
-  score: number;
-  approvalLikelihood: number;
+  modelReady?: boolean;
+  message?: string | null;
+  score: number | null;
+  approvalLikelihood: number | null;
   monthlyHousing: number;
   monthlySurplus: number;
   dti: number;
@@ -47,7 +49,9 @@ export type ScoreResult = {
     direction: "positive" | "negative";
   }>;
   localShap?: LocalInsight[];
-  counterfactual?: Counterfactual;
+  counterfactual?: Counterfactual | null;
+  explanationMode?: "model-perturbation" | null;
+  featureMode?: string;
 };
 
 export type BenchmarkCategory = {
@@ -71,30 +75,43 @@ export type BenchmarkModel = {
   categories: BenchmarkCategory[];
 };
 
+export type HmdaCountySummary = {
+  name: string;
+  readiness: number;
+  approvalRate?: number;
+  applications?: number;
+  medianApprovedIncome?: number;
+  medianApprovedLoan?: number;
+  dataSource?: "county" | "sparse" | "state-average";
+};
+
 export type HmdaMarket = {
   incomeMedian: number;
   priceMedian: number;
   approvalBase: number;
-  counties: Array<{
-    name: string;
-    readiness: number;
-    approvalRate?: number;
-    applications?: number;
-  }>;
+  counties: HmdaCountySummary[];
 };
 
 export type HmdaModel = {
   source: {
     name: string;
     note?: string;
+    rawRows?: number;
+    scatterRows?: number;
+    countyCount?: number;
   };
+  counties?: Record<string, HmdaCountySummary>;
+  countyPrimaryMarket?: Record<string, string>;
   markets: Record<string, HmdaMarket>;
   scatter: Array<{
+    id?: string;
     marketTags: string[];
     county: string;
     incomeMonthly: number;
     loanAmount: number;
     approved: boolean;
+    dti?: number;
+    interestRate?: number;
   }>;
 };
 
@@ -131,10 +148,24 @@ export type ModelReport = {
     actualRate: number;
     rawPredictedRate: number;
   }>;
+  featurePolicy?: {
+    excludedLeakageFields?: string[];
+    fairnessAuditOnlyFields?: string[];
+    usedNumericFeatures?: string[];
+    usedCategoricalFeatures?: string[];
+  };
+  countyCalibration?: Array<{
+    county: string;
+    rows: number;
+    actualApprovalRate: number;
+    predictedApprovalRate: number;
+    errorRate: number;
+  }>;
 };
 
 export type FinanceSummary = {
   transactionCount: number;
+  monthsObserved?: number;
   monthlyIncomeObserved: number;
   monthlyOutflowObserved: number;
   netCashflowObserved: number;

@@ -7,6 +7,7 @@ import json
 import math
 import os
 import secrets
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -25,13 +26,52 @@ except ImportError:
     pass
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+OPENROUTER_MODEL = os.getenv(
+    "OPENROUTER_MODEL",
+    "nvidia/nemotron-3-nano-30b-a3b:free",
+)
+_extra_openrouter_models = os.getenv("OPENROUTER_FALLBACK_MODELS", "")
+_chain_parts: list[str] = [OPENROUTER_MODEL]
+if _extra_openrouter_models:
+    _chain_parts.extend(m.strip() for m in _extra_openrouter_models.split(",") if m.strip())
+_chain_parts.extend(
+    [
+        "nvidia/nemotron-3-nano-30b-a3b:free",
+        "qwen/qwen3-next-80b-a3b-instruct:free",
+        "google/gemma-4-26b-a4b-it:free",
+        "liquid/lfm-2.5-1.2b-instruct:free",
+        "deepseek/deepseek-v4-flash:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+    ]
+)
+_seen_models: set[str] = set()
+OPENROUTER_MODEL_CHAIN: list[str] = []
+for _model_id in _chain_parts:
+    if _model_id not in _seen_models:
+        _seen_models.add(_model_id)
+        OPENROUTER_MODEL_CHAIN.append(_model_id)
+OPENROUTER_HTTP_REFERER = os.getenv("OPENROUTER_HTTP_REFERER", "http://127.0.0.1:5173")
+OPENROUTER_APP_TITLE = os.getenv("OPENROUTER_APP_TITLE", "ClariFi")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
 VALID_HIGHLIGHTS = {"readiness", "finances", "hmda", "model"}
+QUESTION_MARKET_ALIASES: list[tuple[str, str]] = [
+    ("san diego", "San Diego"),
+    ("los angeles", "Los Angeles"),
+    ("la county", "Los Angeles"),
+    ("sacramento", "Sacramento"),
+    ("alameda", "Alameda"),
+    ("oakland", "Alameda"),
+    ("berkeley", "Alameda"),
+]
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+from scripts.scenario_inference import build_scenario_features, load_inference_config
 
 try:
     import joblib
@@ -45,8 +85,8 @@ try:
 except Exception:  # pragma: no cover - optional until API deps are installed
     MongoClient = None
 
-# Global Mongo client instance created on startup when MONGODB_URI is set
 MONGO_CLIENT = None
+MODEL_CACHE: Any = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -74,10 +114,15 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup_mongo_client() -> None:
-    """Initialize a shared MongoClient if `MONGODB_URI` is set and pymongo is available."""
-    global MONGO_CLIENT
+    """Initialize MongoClient and cache ML artifacts when available."""
+    global MONGO_CLIENT, MODEL_CACHE
     if MONGODB_URI and MongoClient is not None:
         MONGO_CLIENT = MongoClient(MONGODB_URI)
+    if joblib is not None and MODEL_PATH.exists():
+        try:
+            MODEL_CACHE = joblib.load(MODEL_PATH)
+        except Exception:
+            MODEL_CACHE = None
 
 
 @app.on_event("shutdown")
@@ -98,6 +143,22 @@ def utc_now() -> str:
 def read_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def read_json_or_404(path: Path, label: str) -> Any:
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"{label} not found at {path.name}")
+    return read_json(path)
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float | None:
+    text = str(value or "").strip().replace(",", "").replace("$", "")
+    if not text:
+        return default
+    try:
+        return float(text)
+    except ValueError:
+        return None
 
 
 def initial_store() -> dict[str, Any]:
@@ -234,73 +295,206 @@ def sample_transactions() -> list[dict[str, Any]]:
     ]
 
 
+def _transaction_month_key(date_value: Any) -> str | None:
+    text = str(date_value or "").strip()[:10]
+    if len(text) >= 7 and text[4] == "-":
+        return text[:7]
+    return None
+
+
+def scenario_from_question(question: str, scenario: ScenarioInput | None) -> ScenarioInput:
+    """Override scenario market when the question names a supported county."""
+    base = scenario or ScenarioInput()
+    lowered = question.lower()
+    for phrase, market in QUESTION_MARKET_ALIASES:
+        if phrase in lowered:
+            return base.model_copy(update={"market": market})
+    return base
+
+
+def _hmda_chart_meta() -> dict[str, Any]:
+    path = PUBLIC_DATA / "hmda_processed.json"
+    if not path.exists():
+        return {"scatterRows": 0, "sourceName": None}
+    data = read_json(path)
+    source = data.get("source", {})
+    return {
+        "scatterRows": len(data.get("scatter", [])),
+        "rawRows": source.get("rawRows"),
+        "countyCount": source.get("countyCount"),
+        "sourceName": source.get("name"),
+    }
+
+
+def _model_training_meta() -> dict[str, Any]:
+    report_path = PUBLIC_DATA / "model_report.json"
+    report = read_json(report_path) if report_path.exists() else {}
+    metrics = report.get("metrics", {})
+    rows = report.get("rows", {})
+    return {
+        "artifactPresent": MODEL_PATH.exists(),
+        "rowsTotal": rows.get("total"),
+        "testAuc": metrics.get("testAuc"),
+        "bestThreshold": metrics.get("bestThreshold"),
+    }
+
+
+def _database_status() -> dict[str, Any]:
+    if not MONGODB_URI or MongoClient is None:
+        return {"mode": "local-json", "connected": True}
+    if MONGO_CLIENT is None:
+        return {"mode": "mongodb", "connected": False, "error": "client not initialized"}
+    try:
+        MONGO_CLIENT.admin.command("ping")
+        return {"mode": "mongodb", "connected": True, "database": MONGODB_DB}
+    except Exception as exc:
+        return {"mode": "mongodb", "connected": False, "error": str(exc)}
+
+
 def summarize_transactions(transactions: list[dict[str, Any]]) -> dict[str, Any]:
-    totals: dict[str, float] = {}
+    """Aggregate transactions into per-month buckets, then average across months."""
+    empty = {
+        "transactionCount": 0,
+        "monthsObserved": 0,
+        "monthlyIncomeObserved": 0.0,
+        "monthlyOutflowObserved": 0.0,
+        "netCashflowObserved": 0.0,
+        "categoryTotals": {},
+    }
+    if not transactions:
+        return empty
+
+    by_month: dict[str, dict[str, float]] = {}
     for tx in transactions:
+        month = _transaction_month_key(tx.get("date")) or "unknown"
+        bucket = by_month.setdefault(month, {})
         category = str(tx.get("category", "uncategorized")).lower()
-        totals[category] = totals.get(category, 0) + float(tx.get("amount", 0))
-    outflow = sum(abs(value) for key, value in totals.items() if key != "income" and value < 0)
-    income = totals.get("income", 0)
+        bucket[category] = bucket.get(category, 0) + float(tx.get("amount", 0))
+
+    months = sorted(m for m in by_month if m != "unknown")
+    if not months:
+        months = sorted(by_month.keys())
+
+    def month_income(bucket: dict[str, float]) -> float:
+        return max(bucket.get("income", 0.0), 0.0)
+
+    def month_outflow(bucket: dict[str, float]) -> float:
+        return sum(abs(value) for key, value in bucket.items() if key != "income" and value < 0)
+
+    n_months = len(months)
+    monthly_income = sum(month_income(by_month[m]) for m in months) / n_months
+    monthly_outflow = sum(month_outflow(by_month[m]) for m in months) / n_months
+
+    categories: set[str] = set()
+    for bucket in by_month.values():
+        categories.update(bucket.keys())
+    category_totals = {
+        cat: sum(by_month[m].get(cat, 0.0) for m in months) / n_months
+        for cat in categories
+    }
+
     return {
         "transactionCount": len(transactions),
-        "monthlyIncomeObserved": income,
-        "monthlyOutflowObserved": outflow,
-        "netCashflowObserved": income - outflow,
-        "categoryTotals": totals
+        "monthsObserved": n_months,
+        "monthlyIncomeObserved": round(monthly_income, 2),
+        "monthlyOutflowObserved": round(monthly_outflow, 2),
+        "netCashflowObserved": round(monthly_income - monthly_outflow, 2),
+        "categoryTotals": {k: round(v, 2) for k, v in category_totals.items()},
     }
 
 
 def scenario_features(scenario: ScenarioInput) -> dict[str, Any]:
-    market_codes = {
-        "Sacramento": 6067,
-        "Alameda": 6001,
-        "San Diego": 6073,
-        "Los Angeles": 6037
-    }
-    annual_income_k = max(scenario.income * 12 / 1000, 1)
-    loan_amount = max(scenario.price - scenario.savings, 1)
-    property_value = max(scenario.price, 1)
-    monthly_housing = loan_amount * 0.0062
-    dti = (scenario.debt + monthly_housing) / max(scenario.income, 1)
-    ltv = loan_amount / property_value
-    county_median_income = {
-        "Sacramento": 118,
-        "Alameda": 166,
-        "San Diego": 139,
-        "Los Angeles": 134
-    }.get(scenario.market, 130)
-    county_median_loan = {
-        "Sacramento": 560000,
-        "Alameda": 950000,
-        "San Diego": 790000,
-        "Los Angeles": 840000
-    }.get(scenario.market, 650000)
+    features, _mode = build_scenario_features(scenario)
+    return features
 
-    return {
-        "loan_amount": loan_amount,
-        "income": annual_income_k,
-        "property_value": property_value,
-        "dti_numeric": dti * 100,
-        "combined_loan_to_value_ratio": ltv * 100,
-        "loan_term": 360,
-        "loan_to_income": loan_amount / (annual_income_k * 1000),
-        "down_payment_rate_proxy": scenario.savings / property_value,
-        "log_income": math.log1p(annual_income_k),
-        "log_loan_amount": math.log1p(loan_amount),
-        "log_property_value": math.log1p(property_value),
-        "high_dti_flag": 1 if dti > 0.43 else 0,
-        "high_ltv_flag": 1 if ltv > 0.9 else 0,
-        "jumbo_proxy_flag": 1 if loan_amount > 766550 else 0,
-        "income_vs_county_median": annual_income_k / county_median_income,
-        "loan_vs_county_median": loan_amount / county_median_loan,
-        "county_applications": 1000,
-        "county_median_income": county_median_income,
-        "county_median_loan": county_median_loan,
-        "income_decile": min(max(int(annual_income_k // 35), 1), 10),
-        "loan_amount_decile": min(max(int(loan_amount // 120000), 1), 10),
-        "county_code": str(market_codes.get(scenario.market, 6067)),
-        "loan_type": "1"
-    }
+
+def _predict_scenario_probability(scenario: ScenarioInput) -> float | None:
+    if joblib is None or pd is None or MODEL_CACHE is None:
+        return None
+    features, _mode = build_scenario_features(scenario)
+    try:
+        return float(MODEL_CACHE.predict_proba(pd.DataFrame([features]))[:, 1][0])
+    except Exception:
+        return None
+
+
+def _local_shap_model(scenario: ScenarioInput, baseline_prob: float) -> list[dict[str, Any]] | None:
+    """Finite-difference local attributions through the trained pipeline."""
+    perturbations: list[tuple[str, str, dict[str, float | int], float]] = [
+        ("debt", "Monthly debt", {"debt": max(scenario.debt * 0.85, 0)}, scenario.debt),
+        ("income", "Monthly income", {"income": scenario.income * 1.08}, scenario.income),
+        ("savings", "Down payment savings", {"savings": scenario.savings * 1.15}, scenario.savings),
+        ("price", "Target home price", {"price": scenario.price * 0.92}, scenario.price),
+    ]
+    insights: list[dict[str, Any]] = []
+    for feature, label, update, value in perturbations:
+        patched = scenario.model_copy(update=update)
+        prob = _predict_scenario_probability(patched)
+        if prob is None:
+            return None
+        impact = round(prob - baseline_prob, 3)
+        insights.append({
+            "feature": feature,
+            "label": label,
+            "value": round(value, 2) if isinstance(value, float) else value,
+            "ideal": value,
+            "impact": impact,
+            "direction": "positive" if impact >= 0 else "negative",
+        })
+    insights.sort(key=lambda row: abs(row["impact"]), reverse=True)
+    return insights
+
+
+def _counterfactual_model(scenario: ScenarioInput, current_prob: float) -> dict[str, Any] | None:
+    """Re-score perturbed scenarios with the trained pipeline."""
+    monthly_housing = (scenario.price - scenario.savings) * 0.0062
+    candidates: list[dict[str, Any]] = []
+
+    target_debt = max(scenario.income * 0.36 - monthly_housing, 0)
+    if scenario.debt > target_debt + 50:
+        patched = scenario.model_copy(update={"debt": round(target_debt)})
+        prob = _predict_scenario_probability(patched)
+        if prob is not None:
+            candidates.append({
+                "feature": "debt",
+                "suggestion": f"Reduce monthly debt by {money_fmt(scenario.debt - target_debt)} to bring DTI near 36%",
+                "change": -round(scenario.debt - target_debt),
+                "newApproval": round(prob, 3),
+                "delta": round(prob - current_prob, 3),
+            })
+
+    target_savings = scenario.price * 0.20
+    if scenario.savings + 1000 < target_savings:
+        patched = scenario.model_copy(update={"savings": round(target_savings)})
+        prob = _predict_scenario_probability(patched)
+        if prob is not None:
+            candidates.append({
+                "feature": "savings",
+                "suggestion": f"Save {money_fmt(target_savings - scenario.savings)} more to reach 20% down payment",
+                "change": round(target_savings - scenario.savings),
+                "newApproval": round(prob, 3),
+                "delta": round(prob - current_prob, 3),
+            })
+
+    new_price = round(scenario.price * 0.90)
+    patched = scenario.model_copy(update={"price": new_price})
+    prob = _predict_scenario_probability(patched)
+    if prob is not None:
+        candidates.append({
+            "feature": "price",
+            "suggestion": f"Reduce target price by 10% to {money_fmt(new_price)}",
+            "change": -round(scenario.price - new_price),
+            "newApproval": round(prob, 3),
+            "delta": round(prob - current_prob, 3),
+        })
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda row: row["delta"], reverse=True)
+    best = candidates[0]
+    best["newScore"] = round(min(max(best["newApproval"] * 100, 0), 100))
+    best["heuristicEstimate"] = False
+    return best
 
 
 def _approval_from_factors(dti: float, down_payment: float, surplus: float = 1000.0) -> float:
@@ -316,7 +510,6 @@ def _local_shap(scenario: ScenarioInput, features: dict[str, Any], approval: flo
     dti = features["dti_numeric"] / 100
     down_payment = features["down_payment_rate_proxy"]
 
-    # Neutral baseline: DTI=0.36, down_payment=0.20, surplus=$1000
     base = _approval_from_factors(0.36, 0.20, 1000)
 
     def _delta(dti_: float, dp_: float, sur_: float) -> float:
@@ -364,7 +557,6 @@ def _local_shap(scenario: ScenarioInput, features: dict[str, Any], approval: flo
             "direction": "negative" if features["combined_loan_to_value_ratio"] > 90 else "positive",
         },
     ]
-    # Sort by absolute impact descending
     insights.sort(key=lambda x: abs(x["impact"]), reverse=True)
     return insights
 
@@ -379,7 +571,6 @@ def _counterfactual(scenario: ScenarioInput, features: dict[str, Any], current_a
 
     candidates: list[dict[str, Any]] = []
 
-    # Option 1: reduce debt to bring DTI to 0.36
     target_debt_payment = scenario.income * 0.36 - monthly_housing
     debt_reduction = scenario.debt - max(target_debt_payment, 0)
     if debt_reduction > 50:
@@ -393,7 +584,6 @@ def _counterfactual(scenario: ScenarioInput, features: dict[str, Any], current_a
             "delta": round(new_approval - current_approval, 3),
         })
 
-    # Option 2: increase savings to 20% down payment
     target_savings = scenario.price * 0.20
     savings_gap = target_savings - scenario.savings
     if savings_gap > 1000:
@@ -409,7 +599,6 @@ def _counterfactual(scenario: ScenarioInput, features: dict[str, Any], current_a
             "delta": round(new_approval - current_approval, 3),
         })
 
-    # Option 3: lower target price by 10%
     new_price = scenario.price * 0.90
     new_dp_rate = scenario.savings / max(new_price, 1)
     new_mh = (new_price - scenario.savings) * 0.0062
@@ -424,7 +613,6 @@ def _counterfactual(scenario: ScenarioInput, features: dict[str, Any], current_a
         "delta": round(new_approval_p - current_approval, 3),
     })
 
-    # Pick candidate with highest delta
     candidates.sort(key=lambda x: x["delta"], reverse=True)
     best = candidates[0]
     best["newScore"] = round(min(max(0.52 + (best["newApproval"] * 130) + 60 - 130 * 0.52, 18), 96))
@@ -435,63 +623,106 @@ def money_fmt(value: float) -> str:
     return f"${value:,.0f}"
 
 
-def heuristic_score(scenario: ScenarioInput) -> dict[str, Any]:
-    features = scenario_features(scenario)
-    monthly_housing = (scenario.price - scenario.savings) * 0.0062
+def _scenario_budget(scenario: ScenarioInput) -> dict[str, Any]:
+    features, feature_mode = build_scenario_features(scenario)
+    monthly_housing = round((scenario.price - scenario.savings) * 0.0062)
     flexible = sum(scenario.expenses.values())
-    surplus = scenario.income - scenario.debt - monthly_housing - flexible
+    surplus = round(scenario.income - scenario.debt - monthly_housing - flexible)
     dti = features["dti_numeric"] / 100
     down_payment = features["down_payment_rate_proxy"]
-    score = min(max(34 + down_payment * 118 + (1 - abs(dti - 0.32)) * 26 - max(dti - 0.36, 0) * 360 + surplus / 1800, 18), 96)
-    approval = min(max(0.52 + (score - 60) / 130, 0.08), 0.97)
     return {
-        "mode": "heuristic-fallback",
-        "score": round(score),
-        "approvalLikelihood": round(approval, 3),
-        "monthlyHousing": round(monthly_housing),
-        "monthlySurplus": round(surplus),
+        "features": features,
+        "featureMode": feature_mode,
+        "monthlyHousing": monthly_housing,
+        "monthlySurplus": surplus,
         "dti": round(dti, 3),
         "downPaymentRate": round(down_payment, 3),
         "drivers": [
             {"label": "Down payment", "value": down_payment, "direction": "positive"},
             {"label": "Debt-to-income", "value": dti, "direction": "negative" if dti > 0.36 else "positive"},
-            {"label": "Monthly surplus", "value": surplus, "direction": "positive" if surplus >= 0 else "negative"}
+            {"label": "Monthly surplus", "value": surplus, "direction": "positive" if surplus >= 0 else "negative"},
         ],
-        "localShap": _local_shap(scenario, features, approval),
-        "counterfactual": _counterfactual(scenario, features, approval),
+    }
+
+
+def _model_unavailable(scenario: ScenarioInput, reason: str) -> dict[str, Any]:
+    budget = _scenario_budget(scenario)
+    return {
+        "modelReady": False,
+        "mode": "model-unavailable",
+        "message": reason,
+        "score": None,
+        "approvalLikelihood": None,
+        "monthlyHousing": budget["monthlyHousing"],
+        "monthlySurplus": budget["monthlySurplus"],
+        "dti": budget["dti"],
+        "downPaymentRate": budget["downPaymentRate"],
+        "drivers": budget["drivers"],
+        "featureMode": budget["featureMode"],
+        "localShap": [],
+        "counterfactual": None,
     }
 
 
 def model_score(scenario: ScenarioInput) -> dict[str, Any]:
-    if joblib is None or pd is None or not MODEL_PATH.exists():
-        return heuristic_score(scenario)
-    model = joblib.load(MODEL_PATH)
-    features = scenario_features(scenario)
-    frame = pd.DataFrame([features])
-    probability = float(model.predict_proba(frame)[:, 1][0])
-    report = read_json(PUBLIC_DATA / "model_report.json")
-    threshold = report.get("metrics", {}).get("bestThreshold", 0.9)
-    heuristic = heuristic_score(scenario)
+    budget = _scenario_budget(scenario)
+    if joblib is None or pd is None:
+        return _model_unavailable(scenario, "Python ML dependencies are not installed.")
+    if MODEL_CACHE is None:
+        return _model_unavailable(
+            scenario,
+            "XGBoost model file missing. Add public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib from Colab.",
+        )
+    try:
+        probability = float(MODEL_CACHE.predict_proba(pd.DataFrame([budget["features"]]))[:, 1][0])
+    except Exception:
+        return _model_unavailable(scenario, "Could not run the trained model on this scenario.")
+    report_path = PUBLIC_DATA / "model_report.json"
+    threshold = 0.9
+    if report_path.exists():
+        threshold = read_json(report_path).get("metrics", {}).get("bestThreshold", 0.9)
+    counterfactual = _counterfactual_model(scenario, probability)
+    explanation_mode = "model-perturbation" if counterfactual else None
+    local_shap = _local_shap_model(scenario, probability) or []
     return {
-        **heuristic,
+        "modelReady": True,
         "mode": "calibrated-xgboost",
+        "message": None,
         "approvalLikelihood": round(probability, 3),
         "score": round(min(max(probability * 100, 0), 100)),
         "bestThreshold": threshold,
-        # Re-compute counterfactual using the real model probability as baseline
-        "counterfactual": _counterfactual(scenario, features, probability),
+        "monthlyHousing": budget["monthlyHousing"],
+        "monthlySurplus": budget["monthlySurplus"],
+        "dti": budget["dti"],
+        "downPaymentRate": budget["downPaymentRate"],
+        "drivers": budget["drivers"],
+        "counterfactual": counterfactual,
+        "localShap": local_shap,
+        "explanationMode": explanation_mode,
+        "featureMode": budget["featureMode"],
     }
 
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
+    db_status = _database_status()
+    model_training = _model_training_meta()
+    inference_config = load_inference_config()
     return {
         "ok": True,
         "name": "ClariFi API",
         "stack": ["FastAPI", "React", "TypeScript", "Vite", "D3", "MongoDB-ready"],
-        "modelArtifactPresent": MODEL_PATH.exists(),
-        "database": "mongodb" if MONGODB_URI and MongoClient is not None else "local-json",
-        "generatedAt": utc_now()
+        "modelArtifactPresent": model_training["artifactPresent"],
+        "inferenceConfigPresent": inference_config is not None,
+        "scoringPipeline": "notebook-export" if inference_config else "synthetic-local",
+        "openRouterConfigured": bool(OPENROUTER_API_KEY),
+        "openRouterModel": OPENROUTER_MODEL if OPENROUTER_API_KEY else None,
+        "anthropicConfigured": bool(ANTHROPIC_API_KEY),
+        "hmdaChart": _hmda_chart_meta(),
+        "modelTraining": model_training,
+        "database": db_status["mode"],
+        "databaseStatus": db_status,
+        "generatedAt": utc_now(),
     }
 
 
@@ -551,21 +782,40 @@ def save_profile(payload: ProfileInput, user: dict[str, Any] = Depends(user_from
 
 @app.post("/api/transactions/upload")
 async def upload_transactions(file: UploadFile = File(...), user: dict[str, Any] = Depends(user_from_authorization)) -> dict[str, Any]:
-    text = (await file.read()).decode("utf-8")
+    try:
+        text = (await file.read()).decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="CSV must be UTF-8 encoded") from exc
     reader = csv.DictReader(io.StringIO(text))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV is empty or missing a header row")
     rows = []
+    skipped = 0
+    errors: list[str] = []
     for index, row in enumerate(reader, start=1):
+        amount = _safe_float(row.get("amount"))
+        if amount is None:
+            skipped += 1
+            errors.append(f"row {index}: invalid amount")
+            continue
         rows.append({
             "id": row.get("id") or f"upload-{index}",
             "date": row.get("date", ""),
             "merchant": row.get("merchant") or row.get("description") or "Imported transaction",
             "category": (row.get("category") or "uncategorized").lower(),
-            "amount": float(row.get("amount", 0))
+            "amount": amount,
         })
+    if not rows:
+        raise HTTPException(status_code=400, detail="No valid transaction rows found")
     store = load_store()
     store["transactions"][user["id"]] = rows
     save_store(store)
-    return {"imported": len(rows), "summary": summarize_transactions(rows)}
+    return {
+        "imported": len(rows),
+        "skipped": skipped,
+        "errors": errors[:5],
+        "summary": summarize_transactions(rows),
+    }
 
 
 @app.get("/api/transactions")
@@ -584,36 +834,36 @@ def finance_summary(user: dict[str, Any] = Depends(user_from_authorization)) -> 
 
 @app.get("/api/benchmarks")
 def benchmarks() -> Any:
-    return read_json(PUBLIC_DATA / "bls_benchmarks.json")
+    return read_json_or_404(PUBLIC_DATA / "bls_benchmarks.json", "Benchmark data")
 
 
 @app.get("/api/hmda")
 def hmda() -> Any:
-    return read_json(PUBLIC_DATA / "hmda_processed.json")
+    return read_json_or_404(PUBLIC_DATA / "hmda_processed.json", "HMDA data")
 
 
 @app.get("/api/model")
 def model_report() -> Any:
-    return read_json(PUBLIC_DATA / "model_report.json")
+    return read_json_or_404(PUBLIC_DATA / "model_report.json", "Model report")
 
 
 @app.post("/api/mortgage/score")
 def score_mortgage(payload: ScenarioInput, user: dict[str, Any] = Depends(user_from_authorization)) -> dict[str, Any]:
+    return model_score(payload)
+
+
+@app.post("/api/scenarios")
+def save_scenario(payload: ScenarioInput, user: dict[str, Any] = Depends(user_from_authorization)) -> dict[str, Any]:
     result = model_score(payload)
     store = load_store()
     store["scenarios"].setdefault(user["id"], []).append({
         "id": f"scenario-{len(store['scenarios'].get(user['id'], [])) + 1}",
         "createdAt": utc_now(),
         "input": payload.model_dump(),
-        "result": result
+        "result": result,
     })
     save_store(store)
     return result
-
-
-@app.post("/api/scenarios")
-def save_scenario(payload: ScenarioInput, user: dict[str, Any] = Depends(user_from_authorization)) -> dict[str, Any]:
-    return score_mortgage(payload, user)
 
 
 @app.get("/api/scenarios")
@@ -629,6 +879,12 @@ def _rule_based_explain(question: str, score: dict[str, Any]) -> tuple[str, str,
     surplus = score["monthlySurplus"]
     cf = score.get("counterfactual", {})
     cf_text = f" {cf['suggestion']}." if cf.get("suggestion") else ""
+    q = question.lower()
+    lead = ""
+    if any(word in q for word in ("buy", "afford", "home", "house", "mortgage", "loan")):
+        lead = "On affordability: "
+    elif any(word in q for word in ("dti", "debt", "down payment", "savings")):
+        lead = "On your leverage profile: "
 
     if dti > 0.38:
         answer = (
@@ -654,7 +910,7 @@ def _rule_based_explain(question: str, score: dict[str, Any]) -> tuple[str, str,
             f"Check the county comparison to see how approval rates vary across your target market.{cf_text}"
         )
         highlight = "hmda"
-    return answer, highlight, "rule-based"
+    return f"{lead}{answer}", highlight, "rule-based"
 
 
 def _build_prompts(question: str, scenario: ScenarioInput, score: dict[str, Any]) -> tuple[str, str]:
@@ -709,14 +965,12 @@ def _build_prompts(question: str, scenario: ScenarioInput, score: dict[str, Any]
 def _parse_llm_json(raw: str) -> tuple[str, str] | None:
     """Extract answer+highlight from a model response. Returns None on parse failure."""
     text = raw.strip()
-    # Strip markdown code fences if present
     if "```" in text:
         for block in text.split("```"):
             cleaned = block.lstrip("json").strip()
             if cleaned.startswith("{"):
                 text = cleaned
                 break
-    # Find the first {...} block
     start = text.find("{")
     end = text.rfind("}") + 1
     if start != -1 and end > start:
@@ -732,6 +986,88 @@ def _parse_llm_json(raw: str) -> tuple[str, str] | None:
     except Exception:
         pass
     return None
+
+
+def _openrouter_retry_seconds(response: httpx.Response) -> int:
+    try:
+        meta = response.json().get("error", {}).get("metadata", {})
+        return int(meta.get("retry_after_seconds", 5))
+    except Exception:
+        return 5
+
+
+def _openrouter_message_text(data: dict[str, Any]) -> str:
+    message = data.get("choices", [{}])[0].get("message", {})
+    content = str(message.get("content") or "").strip()
+    if content:
+        return content
+    reasoning = message.get("reasoning")
+    if isinstance(reasoning, str):
+        return reasoning.strip()
+    return ""
+
+
+def _openrouter_call_model(
+    model_id: str,
+    headers: dict[str, str],
+    system_prompt: str,
+    user_content: str,
+) -> tuple[str, str, str] | None:
+    payload = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ],
+        "temperature": 0.3,
+        "max_tokens": 400,
+    }
+    for attempt in range(3):
+        resp = httpx.post(
+            f"{OPENROUTER_BASE_URL}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=90.0,
+        )
+        if resp.status_code == 429 and attempt < 2:
+            time.sleep(min(max(_openrouter_retry_seconds(resp), 1), 12))
+            continue
+        if resp.status_code == 429:
+            return None
+        resp.raise_for_status()
+        raw = _openrouter_message_text(resp.json())
+        parsed = _parse_llm_json(raw)
+        if parsed:
+            label = model_id.split("/")[-1][:32]
+            return parsed[0], parsed[1], f"openrouter/{label}"
+        return None
+    return None
+
+
+def _openrouter_explain(question: str, scenario: ScenarioInput, score: dict[str, Any]) -> tuple[str, str, str] | None:
+    """Call OpenRouter (OpenAI-compatible chat). Returns (answer, highlight, model_label) or None."""
+    if not OPENROUTER_API_KEY:
+        return None
+    system_prompt, user_content = _build_prompts(question, scenario, score)
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": OPENROUTER_HTTP_REFERER,
+        "X-Title": OPENROUTER_APP_TITLE,
+    }
+    for model_id in OPENROUTER_MODEL_CHAIN:
+        try:
+            result = _openrouter_call_model(model_id, headers, system_prompt, user_content)
+            if result:
+                return result
+        except Exception:
+            continue
+    return (
+        "OpenRouter free models are busy right now (rate limits). "
+        "Wait a minute and try again, or set OPENROUTER_MODEL to a paid model in .env.",
+        "readiness",
+        "openrouter-rate-limited",
+    )
 
 
 def _ollama_explain(question: str, scenario: ScenarioInput, score: dict[str, Any]) -> tuple[str, str, str] | None:
@@ -784,11 +1120,14 @@ def _anthropic_explain(question: str, scenario: ScenarioInput, score: dict[str, 
 
 
 def _llm_explain(question: str, scenario: ScenarioInput, score: dict[str, Any]) -> tuple[str, str, str]:
-    """Try Ollama → Anthropic → rule-based, returning (answer, highlight, model_label)."""
-    result = _ollama_explain(question, scenario, score)
+    """Try OpenRouter → Anthropic → Ollama → rule-based."""
+    result = _openrouter_explain(question, scenario, score)
     if result:
         return result
     result = _anthropic_explain(question, scenario, score)
+    if result:
+        return result
+    result = _ollama_explain(question, scenario, score)
     if result:
         return result
     return _rule_based_explain(question, score)
@@ -796,7 +1135,7 @@ def _llm_explain(question: str, scenario: ScenarioInput, score: dict[str, Any]) 
 
 @app.post("/api/agent/explain")
 def explain(payload: AgentExplainInput, user: dict[str, Any] = Depends(user_from_authorization)) -> dict[str, Any]:
-    scenario = payload.scenario or ScenarioInput()
+    scenario = scenario_from_question(payload.question, payload.scenario)
     score = model_score(scenario)
     answer, highlight, agent_mode = _llm_explain(payload.question, scenario, score)
     message = {

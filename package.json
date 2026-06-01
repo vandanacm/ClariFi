@@ -11,9 +11,8 @@
     "dev:full": "concurrently \"npm run dev:api\" \"npm run dev\"",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "build:data": "node scripts/process_hmda_sample.mjs",
-    "train:model": "node scripts/train_approval_model.mjs",
-    "legacy:server": "node server.mjs",
+    "build:data": ".venv/bin/python scripts/process_hmda_mlar.py",
+    "test:api": ".venv/bin/python -m pytest tests/test_api.py -q",
     "start": "vite --host 127.0.0.1"
   },
   "dependencies": {

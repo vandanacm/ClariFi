@@ -20,7 +20,6 @@ export function Onboarding({ userName, onComplete }: Props) {
       const result = await api.uploadTransactions(file);
       const totals = result.summary.categoryTotals;
 
-      // Derive scenario hints from observed transactions
       const hints: Partial<ScenarioInput> = {};
       const income = result.summary.monthlyIncomeObserved;
       if (income > 0) hints.income = Math.round(income);

@@ -3,7 +3,6 @@ import * as d3 from "d3";
 import { feature } from "topojson-client";
 import type { BenchmarkCategory, HmdaModel, ModelReport, ScenarioInput, ScoreResult } from "./types";
 
-// ── California counties from us-atlas (pre-parsed once) ────────────────────
 import usAtlasData from "us-atlas/counties-10m.json";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const _caGeo = feature(usAtlasData as any, (usAtlasData as any).objects.counties) as unknown as GeoJSON.FeatureCollection;
@@ -14,6 +13,24 @@ const money = new Intl.NumberFormat("en-US", {
   currency: "USD",
   maximumFractionDigits: 0
 });
+
+function chartExtent(values: number[], fallback: [number, number], pad = 0.08): [number, number] {
+  const valid = values.filter(v => Number.isFinite(v) && v > 0);
+  if (!valid.length) return fallback;
+  const sorted = [...valid].sort(d3.ascending);
+  const lo = d3.quantile(sorted, 0.03) ?? sorted[0];
+  const hi = d3.quantile(sorted, 0.97) ?? sorted[sorted.length - 1];
+  const span = Math.max(hi - lo, 1);
+  return [Math.max(0, lo - span * pad), hi + span * pad];
+}
+
+function domainIncluding(value: number, domain: [number, number], padRatio = 0.06): [number, number] {
+  if (!Number.isFinite(value)) return domain;
+  let [lo, hi] = domain;
+  if (value < lo) lo = value - (hi - lo) * padRatio;
+  if (value > hi) hi = value + (hi - lo) * padRatio;
+  return [lo, hi];
+}
 
 type CashflowProps = {
   scenario: ScenarioInput;
@@ -29,6 +46,7 @@ export function CashflowChart({ scenario, score }: CashflowProps) {
     { label: "Housing", value: -score.monthlyHousing, tone: "housing" },
     { label: "Debt", value: -scenario.debt, tone: "debt" },
     { label: "Food", value: -scenario.expenses.food, tone: "flex" },
+    { label: "Transport", value: -scenario.expenses.transport, tone: "flex" },
     { label: "Lifestyle", value: -scenario.expenses.lifestyle, tone: "flex" },
     { label: "Surplus", value: score.monthlySurplus, tone: score.monthlySurplus >= 0 ? "surplus" : "shortfall" }
   ];
@@ -76,7 +94,6 @@ export function CashflowChart({ scenario, score }: CashflowProps) {
                 }}
               />
             </g>
-            {/* Hover tooltip card */}
             {isHovered && (
               <g>
                 <rect
@@ -85,7 +102,7 @@ export function CashflowChart({ scenario, score }: CashflowProps) {
                   width={68}
                   height={20}
                   rx={6}
-                  fill="var(--surface-2, #1e2a3a)"
+                  fill="var(--chart-surface)"
                   stroke="var(--line)"
                   strokeWidth={0.8}
                   opacity={0.95}
@@ -102,7 +119,6 @@ export function CashflowChart({ scenario, score }: CashflowProps) {
                 </text>
               </g>
             )}
-            {/* Static value label — hide when hovered (tooltip replaces it) */}
             {!isHovered && (
               <text className="cashflow-value" x={x0 + x.bandwidth() / 2} y={y0 - 9} textAnchor="middle">
                 {money.format(item.value)}
@@ -133,12 +149,12 @@ type DonutProps = {
 
 export function ExpenseDonut({ scenario, score, hoveredKey, onHoverChange }: DonutProps) {
   const items = [
-    { label: "Housing", value: score.monthlyHousing, color: "#3867b7", key: "housing" },
-    { label: "Debt", value: scenario.debt, color: "#c95d63", key: "debt" },
-    { label: "Food", value: scenario.expenses.food, color: "#007f7a", key: "food" },
-    { label: "Transport", value: scenario.expenses.transport, color: "#d99a20", key: "transport" },
-    { label: "Lifestyle", value: scenario.expenses.lifestyle, color: "#7b61c8", key: "lifestyle" },
-    { label: "Investing", value: scenario.expenses.investing, color: "#2f9e44", key: "investing" }
+    { label: "Housing", value: score.monthlyHousing, color: "var(--blue)", key: "housing" },
+    { label: "Debt", value: scenario.debt, color: "var(--rose)", key: "debt" },
+    { label: "Food", value: scenario.expenses.food, color: "var(--teal)", key: "food" },
+    { label: "Transport", value: scenario.expenses.transport, color: "var(--chart-transport)", key: "transport" },
+    { label: "Lifestyle", value: scenario.expenses.lifestyle, color: "var(--chart-violet)", key: "lifestyle" },
+    { label: "Investing", value: scenario.expenses.investing, color: "var(--chart-positive)", key: "investing" }
   ];
   const total = d3.sum(items, item => item.value);
   
@@ -202,9 +218,9 @@ export function ExpenseDonut({ scenario, score, hoveredKey, onHoverChange }: Don
         y="123"
         textAnchor="middle"
         style={{
-          fill: activeItem ? activeItem.color : "var(--muted)",
+          fill: activeItem ? activeItem.color : "var(--teal)",
           transition: "fill 150ms ease",
-          opacity: activeItem ? 0.9 : 0.65,
+          opacity: activeItem ? 0.95 : 1,
           fontSize: "0.62rem",
           letterSpacing: "0.06em"
         }}
@@ -218,49 +234,157 @@ export function ExpenseDonut({ scenario, score, hoveredKey, onHoverChange }: Don
 type ScatterProps = {
   hmda: HmdaModel;
   scenario: ScenarioInput;
+  selectedCounty?: string | null;
+  brushedIncome?: number | null;
 };
 
-export function HmdaScatter({ hmda, scenario }: ScatterProps) {
+export function HmdaScatter({ hmda, scenario, selectedCounty = null, brushedIncome = null }: ScatterProps) {
   const width = 720;
   const height = 380;
   const margin = { top: 24, right: 28, bottom: 62, left: 108 };
   const plotW = width - margin.left - margin.right;
   const plotH = height - margin.top - margin.bottom;
-  const points = hmda.scatter.filter(point => point.marketTags.includes(scenario.market));
+  const points = useMemo(() => {
+    let filtered = hmda.scatter.filter(point => point.marketTags.includes(scenario.market));
+    if (selectedCounty) {
+      filtered = filtered.filter(point => point.county === selectedCounty);
+    }
+    return filtered;
+  }, [hmda.scatter, scenario.market, selectedCounty]);
   const userLoan = scenario.price - scenario.savings;
-  const x = d3.scaleLinear([4, 19], [margin.left, margin.left + plotW]);
-  const y = d3.scaleLinear([250, 1300], [margin.top + plotH, margin.top]);
+  const userIncomeK = scenario.income / 1000;
+  const userLoanK = userLoan / 1000;
+
+  const xDomain = useMemo(() => {
+    const base = chartExtent(
+      points.map(p => p.incomeMonthly / 1000),
+      [5, 16]
+    );
+    return domainIncluding(userIncomeK, base);
+  }, [points, userIncomeK]);
+
+  const yDomain = useMemo(() => {
+    const base = chartExtent(
+      points.map(p => p.loanAmount / 1000),
+      [200, 900]
+    );
+    return domainIncluding(userLoanK, base);
+  }, [points, userLoanK]);
+
+  const x = d3.scaleLinear(xDomain, [margin.left, margin.left + plotW]);
+  const y = d3.scaleLinear(yDomain, [margin.top + plotH, margin.top]);
+  const brushBand = Math.max(400, (xDomain[1] - xDomain[0]) * 80);
+  const xTicks = x.ticks(5);
+  const yTicks = y.ticks(4);
 
   return (
     <svg className="scatter-plot" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="HMDA borrower comparison">
+      <defs>
+        <clipPath id="scatter-plot-clip">
+          <rect x={margin.left} y={margin.top} width={plotW} height={plotH} />
+        </clipPath>
+      </defs>
       <line className="axis-line" x1={margin.left} y1={margin.top + plotH} x2={margin.left + plotW} y2={margin.top + plotH} />
       <line className="axis-line" x1={margin.left} y1={margin.top} x2={margin.left} y2={margin.top + plotH} />
-      {[6, 9, 12, 15, 18].map(tick => (
+      {xTicks.map(tick => (
         <g key={tick}>
           <line className="grid-line" x1={x(tick)} y1={margin.top} x2={x(tick)} y2={margin.top + plotH} />
-          <text className="tick-label" x={x(tick)} y={height - 26} textAnchor="middle">${tick}k</text>
+          <text className="tick-label" x={x(tick)} y={height - 26} textAnchor="middle">${tick.toFixed(0)}k</text>
         </g>
       ))}
-      {[400, 700, 1000, 1300].map(tick => (
+      {yTicks.map(tick => (
         <g key={tick}>
           <line className="grid-line" x1={margin.left} y1={y(tick)} x2={margin.left + plotW} y2={y(tick)} />
-          <text className="tick-label" x={margin.left - 12} y={y(tick) + 4} textAnchor="end">${tick}k</text>
+          <text className="tick-label" x={margin.left - 12} y={y(tick) + 4} textAnchor="end">${tick.toFixed(0)}k</text>
         </g>
       ))}
-      {points.map((point, index) => (
+      <g clipPath="url(#scatter-plot-clip)">
+      {points.map((point, index) => {
+        const nearBrush = brushedIncome != null && Math.abs(point.incomeMonthly - brushedIncome) <= brushBand;
+        const dimmed = brushedIncome != null && !nearBrush;
+        return (
         <circle
           key={`${point.county}-${index}`}
           className="point"
           cx={x(point.incomeMonthly / 1000)}
           cy={y(point.loanAmount / 1000)}
-          r={6}
+          r={nearBrush ? 8 : 6}
           fill={point.approved ? "var(--teal)" : "var(--rose)"}
+          opacity={dimmed ? 0.18 : nearBrush ? 1 : 0.82}
+          stroke={nearBrush ? "var(--you)" : "none"}
+          strokeWidth={nearBrush ? 2 : 0}
         >
           <title>{point.county}: {point.approved ? "approved" : "denied"}</title>
         </circle>
-      ))}
-      <circle className="user-point" cx={x(scenario.income / 1000)} cy={y(userLoan / 1000)} r={10} />
-      <text className="axis-label" x={x(scenario.income / 1000) + 14} y={y(userLoan / 1000) - 13}>User profile</text>
+      );})}
+      {brushedIncome != null && (
+        <>
+          <line
+            x1={x(brushedIncome / 1000)}
+            y1={margin.top}
+            x2={x(brushedIncome / 1000)}
+            y2={margin.top + plotH}
+            stroke="var(--you)"
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            opacity={0.75}
+          />
+        </>
+      )}
+      </g>
+      {brushedIncome != null && (
+        <text className="axis-label" x={Math.min(x(brushedIncome / 1000) + 8, margin.left + plotW - 90)} y={margin.top + 14}>
+          Brushed ${Math.round(brushedIncome / 1000)}k/mo
+        </text>
+      )}
+      {(() => {
+        const userCx = x(userIncomeK);
+        const userCy = y(userLoanK);
+        const labelW = 108;
+        const labelH = 24;
+        const plotRight = margin.left + plotW;
+        const plotBottom = margin.top + plotH;
+        let labelX = userCx + 16;
+        let labelY = userCy - labelH - 12;
+        if (labelX + labelW > plotRight - 4) labelX = userCx - labelW - 16;
+        if (labelX < margin.left + 4) labelX = margin.left + 4;
+        if (labelY < margin.top + 4) labelY = userCy + 14;
+        if (labelY + labelH > plotBottom - 4) labelY = userCy - labelH - 14;
+        const anchorX = Math.min(Math.max(userCx, labelX + 12), labelX + labelW - 12);
+        const anchorY = labelY + labelH;
+        return (
+          <g className="user-profile-marker" aria-label="Your profile on the HMDA scatter plot">
+            <circle className="user-point-halo" cx={userCx} cy={userCy} r={15} strokeWidth={2} />
+            <circle className="user-point" cx={userCx} cy={userCy} r={9} />
+            <line
+              x1={userCx}
+              y1={userCy}
+              x2={anchorX}
+              y2={anchorY}
+              stroke="var(--you)"
+              strokeWidth={1.5}
+              opacity={0.85}
+            />
+            <rect
+              className="user-profile-pill-bg"
+              x={labelX}
+              y={labelY}
+              width={labelW}
+              height={labelH}
+              rx={6}
+              strokeWidth={1.5}
+            />
+            <text
+              x={labelX + labelW / 2}
+              y={labelY + 16}
+              textAnchor="middle"
+              className="user-profile-label"
+            >
+              Your profile
+            </text>
+          </g>
+        );
+      })()}
       <text className="axis-label" x={margin.left + plotW / 2} y={height - 6} textAnchor="middle">Monthly income</text>
       <text className="axis-label y-axis-title" x="24" y={margin.top + plotH / 2} textAnchor="middle" transform={`rotate(-90 24 ${margin.top + plotH / 2})`}>Requested loan amount</text>
     </svg>
@@ -333,11 +457,12 @@ export function BenchmarkBars({
   );
 }
 
-// ── California county choropleth ────────────────────────────────────────────
-
 type ChoroplethProps = {
   hmda: HmdaModel;
   scenario: ScenarioInput;
+  selectedCounty?: string | null;
+  onCountySelect?: (county: string | null) => void;
+  onMarketSelect?: (market: string) => void;
 };
 
 const _choroplethProjection = d3.geoMercator().fitExtent(
@@ -345,41 +470,103 @@ const _choroplethProjection = d3.geoMercator().fitExtent(
   { type: "FeatureCollection" as const, features: caFeatures }
 );
 const _choroplethPath = d3.geoPath(_choroplethProjection);
-const _readinessColor = d3.scaleSequential([40, 100], d3.interpolateRdYlGn);
 
-export function ChoroplethMap({ hmda, scenario }: ChoroplethProps) {
+export function ChoroplethMap({
+  hmda,
+  scenario,
+  selectedCounty = null,
+  onCountySelect,
+  onMarketSelect
+}: ChoroplethProps) {
   const readinessMap = useMemo(() => {
-    const map: Record<string, { readiness: number; approvalRate?: number }> = {};
-    Object.values(hmda.markets).forEach(market => {
-      market.counties.forEach(county => {
-        map[county.name] = { readiness: county.readiness, approvalRate: county.approvalRate };
+    const map: Record<
+      string,
+      { readiness: number; approvalRate?: number; applications?: number; dataSource?: string }
+    > = {};
+    if (hmda.counties) {
+      Object.entries(hmda.counties).forEach(([name, county]) => {
+        map[name] = {
+          readiness: county.readiness,
+          approvalRate: county.approvalRate,
+          applications: county.applications,
+          dataSource: county.dataSource
+        };
       });
-    });
+    } else {
+      Object.values(hmda.markets).forEach(market => {
+        market.counties.forEach(county => {
+          map[county.name] = {
+            readiness: county.readiness,
+            approvalRate: county.approvalRate,
+            applications: county.applications,
+            dataSource: county.dataSource
+          };
+        });
+      });
+    }
     return map;
   }, [hmda]);
 
-  const selectedCountyNames = useMemo(
-    () => new Set(hmda.markets[scenario.market]?.counties.map(c => c.name) ?? []),
-    [hmda, scenario.market]
-  );
+  const countyToMarket = useMemo(() => {
+    if (hmda.countyPrimaryMarket) return hmda.countyPrimaryMarket;
+    const map: Record<string, string> = {};
+    Object.entries(hmda.markets).forEach(([market, data]) => {
+      data.counties.forEach(county => {
+        map[county.name] = market;
+      });
+    });
+    return map;
+  }, [hmda.countyPrimaryMarket, hmda.markets]);
+
+  const selectedCountyNames = useMemo(() => {
+    if (hmda.countyPrimaryMarket) {
+      return new Set(
+        Object.entries(hmda.countyPrimaryMarket)
+          .filter(([, market]) => market === scenario.market)
+          .map(([name]) => name)
+      );
+    }
+    return new Set(hmda.markets[scenario.market]?.counties.map(c => c.name) ?? []);
+  }, [hmda, scenario.market]);
 
   const [hoveredCounty, setHoveredCounty] = useState<string | null>(null);
   const hoveredInfo = hoveredCounty ? readinessMap[hoveredCounty] : null;
 
+  const approvalExtent = useMemo(() => {
+    const rates = Object.values(readinessMap)
+      .map(entry => entry.approvalRate)
+      .filter((rate): rate is number => rate != null && rate > 0);
+    if (!rates.length) return [0.4, 0.85] as [number, number];
+    const lo = Math.min(...rates);
+    const hi = Math.max(...rates);
+    const pad = Math.max((hi - lo) * 0.06, 0.02);
+    return [Math.max(0, lo - pad), Math.min(1, hi + pad)] as [number, number];
+  }, [readinessMap]);
+
+  const approvalColor = useMemo(
+    () => d3.scaleSequential(approvalExtent, d3.interpolateRdYlGn),
+    [approvalExtent]
+  );
+
   return (
-    <svg viewBox="0 0 500 580" className="choropleth-map" role="img" aria-label="California county readiness map">
+    <svg viewBox="0 0 500 580" className="choropleth-map" role="img" aria-label="California county HMDA approval rate map">
       <defs>
         <linearGradient id="readinessLegendGrad" x1="0" y1="0" x2="1" y2="0">
           {d3.range(0, 1.01, 0.1).map((t, i) => (
-            <stop key={i} offset={`${(t * 100).toFixed(0)}%`} stopColor={_readinessColor(40 + t * 60)} />
+            <stop key={i} offset={`${(t * 100).toFixed(0)}%`} stopColor={approvalColor(approvalExtent[0] + t * (approvalExtent[1] - approvalExtent[0]))} />
           ))}
         </linearGradient>
       </defs>
       {caFeatures.map(feat => {
         const name = (feat.properties as { name?: string })?.name ?? "";
         const info = readinessMap[name];
-        const fill = info != null ? _readinessColor(info.readiness) : "#d7e1e6";
-        const isHighlighted = selectedCountyNames.has(name);
+        const inMarket = selectedCountyNames.has(name);
+        const hasRate = info?.approvalRate != null;
+        const isSparse = info?.dataSource === "sparse" || info?.dataSource === "state-average";
+        const fill = hasRate
+          ? approvalColor(info.approvalRate!)
+          : "var(--chart-choropleth-empty)";
+        const isSelected = selectedCounty === name;
         const isHovered = hoveredCounty === name;
         const pathD = _choroplethPath(feat) ?? "";
         return (
@@ -387,42 +574,55 @@ export function ChoroplethMap({ hmda, scenario }: ChoroplethProps) {
             key={String(feat.id)}
             d={pathD}
             fill={fill}
-            stroke={isHovered ? "white" : isHighlighted ? "var(--ink)" : "var(--line)"}
-            strokeWidth={isHovered ? 2 : isHighlighted ? 2 : 0.5}
-            opacity={info != null ? 1 : 0.65}
-            style={{ cursor: info != null ? "pointer" : "default", transition: "stroke 100ms ease, stroke-width 100ms ease" }}
-            onMouseEnter={() => info != null && setHoveredCounty(name)}
+            stroke={isSelected ? "var(--you)" : isHovered ? "var(--teal)" : "var(--line)"}
+            strokeWidth={isSelected ? 2.5 : isHovered ? 1.5 : 0.45}
+            opacity={hasRate ? (isSparse ? 0.72 : inMarket ? 1 : 0.9) : 0.5}
+            style={{ cursor: hasRate ? "pointer" : "default", transition: "stroke 100ms ease, stroke-width 100ms ease" }}
+            onMouseEnter={() => hasRate && setHoveredCounty(name)}
             onMouseLeave={() => setHoveredCounty(null)}
+            onClick={() => {
+              if (!hasRate) return;
+              if (selectedCounty === name) {
+                onCountySelect?.(null);
+                return;
+              }
+              onCountySelect?.(name);
+              const market = countyToMarket[name];
+              if (market) onMarketSelect?.(market);
+            }}
           />
         );
       })}
 
-      {/* Smooth gradient legend */}
       <g transform="translate(10,530)">
-        <text fontSize="9" fontWeight="700" fill="var(--muted)" letterSpacing="0.04em" y={-8}>READINESS SCORE</text>
+        <text fontSize="9" fontWeight="700" fill="var(--muted)" letterSpacing="0.04em" y={-8}>HMDA APPROVAL RATE</text>
         <rect x={0} y={0} width={150} height={10} rx={3} fill="url(#readinessLegendGrad)" />
-        <text fontSize="9" fill="var(--muted)" y={22}>Low</text>
-        <text fontSize="9" fill="var(--muted)" x={150} y={22} textAnchor="end">High</text>
+        <text fontSize="9" fill="var(--muted)" y={22}>{(approvalExtent[0] * 100).toFixed(0)}%</text>
+        <text fontSize="9" fill="var(--muted)" x={150} y={22} textAnchor="end">{(approvalExtent[1] * 100).toFixed(0)}%</text>
       </g>
 
-      {/* Custom hover tooltip fixed at bottom of map */}
       {hoveredCounty && hoveredInfo && (
         <g transform="translate(250,490)">
-          <rect x={-95} y={-14} width={190} height={36} rx={8} fill="var(--surface-2, #1e2a3a)" stroke="var(--line)" strokeWidth={0.8} opacity={0.96} />
+          <rect x={-95} y={-14} width={190} height={36} rx={8} fill="var(--chart-surface)" stroke="var(--line)" strokeWidth={0.8} opacity={0.96} />
           <text fontSize="11" fontWeight="800" fill="var(--ink)" textAnchor="middle" y={2}>
             {hoveredCounty}
           </text>
           <text fontSize="9" fill="var(--muted)" textAnchor="middle" y={16}>
-            Readiness {hoveredInfo.readiness}/100
-            {hoveredInfo.approvalRate != null ? ` · ${(hoveredInfo.approvalRate * 100).toFixed(0)}% approved` : ""}
+            {hoveredInfo.approvalRate != null
+              ? `${(hoveredInfo.approvalRate * 100).toFixed(0)}% HMDA approval`
+              : "No rate in sample"}
+            {hoveredInfo.applications != null ? ` · ${hoveredInfo.applications} apps` : ""}
+            {hoveredInfo.dataSource === "sparse"
+              ? " · thin sample"
+              : hoveredInfo.dataSource === "state-average"
+                ? " · state avg (no local apps)"
+                : ""}
           </text>
         </g>
       )}
     </svg>
   );
 }
-
-// ── DTI × Down-payment risk surface ────────────────────────────────────────
 
 type RiskSurfaceProps = {
   score: ScoreResult;
@@ -443,7 +643,6 @@ export function RiskSurface({ score }: RiskSurfaceProps) {
   const cellW = (W - mg.left - mg.right) / _dtiSteps.length;
   const cellH = (H - mg.top - mg.bottom) / _dpSteps.length;
 
-  // User's nearest cell
   const uCol = _dtiSteps.reduce((best, d, i) => Math.abs(d - score.dti) < Math.abs(_dtiSteps[best] - score.dti) ? i : best, 0);
   const uRow = _dpSteps.slice().reverse().reduce((best, d, i) => Math.abs(d - score.downPaymentRate) < Math.abs(_dpSteps.slice().reverse()[best] - score.downPaymentRate) ? i : best, 0);
 
@@ -467,30 +666,21 @@ export function RiskSurface({ score }: RiskSurfaceProps) {
           );
         })
       )}
-      {/* User marker — glow ring + circle + pill label */}
-      <circle
-        className="pulse-ring"
-        cx={mg.left + uCol * cellW + cellW / 2}
-        cy={mg.top + uRow * cellH + cellH / 2}
-        r={14}
-        fill="none"
-        stroke="white"
-        strokeWidth={1}
-      />
-      <circle
-        cx={mg.left + uCol * cellW + cellW / 2}
-        cy={mg.top + uRow * cellH + cellH / 2}
-        r={9}
-        fill="none"
-        stroke="white"
-        strokeWidth={2.5}
-      />
-      {/* "You" pill label */}
-      <g transform={`translate(${mg.left + uCol * cellW + cellW / 2}, ${mg.top + uRow * cellH - 8})`}>
-        <rect x={-14} y={-12} width={28} height={13} rx={4} fill="rgba(15,23,42,0.82)" stroke="rgba(255,255,255,0.18)" strokeWidth={0.5} />
-        <text fontSize="8" fontWeight="800" fill="white" textAnchor="middle" y={-2}>You</text>
-      </g>
-      {/* DTI axis */}
+      {(() => {
+        const cx = mg.left + uCol * cellW + cellW / 2;
+        const cy = mg.top + uRow * cellH + cellH / 2;
+        return (
+          <g className="risk-surface-you" aria-hidden>
+            <circle className="pulse-ring" cx={cx} cy={cy} r={16} fill="none" stroke="var(--you)" strokeWidth={2} opacity={0.55} />
+            <circle cx={cx} cy={cy} r={13} fill="var(--chart-surface)" stroke="var(--you)" strokeWidth={2.5} opacity={0.96} />
+            <circle className="risk-surface-you-dot" cx={cx} cy={cy} r={7} strokeWidth={2} />
+            <g transform={`translate(${cx}, ${mg.top + uRow * cellH - 10})`}>
+              <rect className="user-profile-pill" x={-18} y={-12} width={36} height={14} rx={7} strokeWidth={1} />
+              <text className="user-marker-label-on-pill" textAnchor="middle" y={-1}>You</text>
+            </g>
+          </g>
+        );
+      })()}
       {_dtiSteps.map((dti, i) => (
         <text key={dti} fontSize="9" fill="var(--muted)" textAnchor="middle"
           x={mg.left + i * cellW + cellW / 2}
@@ -498,7 +688,6 @@ export function RiskSurface({ score }: RiskSurfaceProps) {
           {(dti * 100).toFixed(0)}%
         </text>
       ))}
-      {/* Down payment axis */}
       {_dpSteps.slice().reverse().map((dp, i) => (
         <text key={dp} fontSize="9" fill="var(--muted)" textAnchor="end"
           x={mg.left - 6}
@@ -515,8 +704,6 @@ export function RiskSurface({ score }: RiskSurfaceProps) {
   );
 }
 
-// ── Income distribution histogram ──────────────────────────────────────────
-
 function getRoundedTopPath(x: number, y: number, w: number, h: number, r: number) {
   const currentR = Math.min(r, h, w / 2);
   if (currentR <= 0) return `M ${x},${y} L ${x + w},${y} L ${x + w},${y + h} L ${x},${y + h} Z`;
@@ -526,61 +713,150 @@ function getRoundedTopPath(x: number, y: number, w: number, h: number, r: number
 type HistogramProps = {
   hmda: HmdaModel;
   scenario: ScenarioInput;
+  selectedCounty?: string | null;
+  onBrushIncome?: (income: number | null) => void;
 };
 
-export function IncomeHistogram({ hmda, scenario }: HistogramProps) {
-  const W = 480; const H = 250;
-  const mg = { top: 22, right: 20, bottom: 52, left: 48 };
+function findIncomeBin(
+  bins: Array<d3.Bin<{ incomeMonthly: number; approved: boolean }, number>>,
+  income: number
+) {
+  return bins.find(b => income >= (b.x0 ?? 0) && income < (b.x1 ?? Infinity)) ?? null;
+}
 
-  const points = hmda.scatter.filter(p => p.marketTags.includes(scenario.market));
-  const domain: [number, number] = [2000, 20000];
+function binCenter(bin: d3.Bin<{ incomeMonthly: number; approved: boolean }, number>) {
+  return ((bin.x0 ?? 0) + (bin.x1 ?? 0)) / 2;
+}
+
+function binStats(bin: d3.Bin<{ incomeMonthly: number; approved: boolean }, number>) {
+  const approved = bin.filter(d => d.approved).length;
+  return { approved, denied: bin.length - approved, total: bin.length };
+}
+
+export function IncomeHistogram({
+  hmda,
+  scenario,
+  selectedCounty = null,
+  onBrushIncome
+}: HistogramProps) {
+  const W = 480;
+  const H = 272;
+  const mg = { top: 52, right: 16, bottom: 44, left: 40 };
+  const plotW = W - mg.left - mg.right;
+  const plotH = H - mg.top - mg.bottom;
+
+  const points = useMemo(() => {
+    let filtered = hmda.scatter.filter(p => p.marketTags.includes(scenario.market));
+    if (selectedCounty) {
+      filtered = filtered.filter(p => p.county === selectedCounty);
+    }
+    return filtered;
+  }, [hmda.scatter, scenario.market, selectedCounty]);
+
+  const domain = useMemo<[number, number]>(() => {
+    const incomes = points.map(p => p.incomeMonthly);
+    const base = chartExtent(incomes, [3500, 18000]);
+    return domainIncluding(scenario.income, base);
+  }, [points, scenario.income]);
+
   const x = d3.scaleLinear(domain, [mg.left, W - mg.right]);
 
   const bins = d3.histogram<{ incomeMonthly: number; approved: boolean }, number>()
     .value(d => d.incomeMonthly)
     .domain(domain)
-    .thresholds(x.ticks(10))(points);
+    .thresholds(x.ticks(8))(points);
 
   const maxCount = d3.max(bins, b => b.length) ?? 1;
   const y = d3.scaleLinear([0, maxCount], [H - mg.bottom, mg.top]);
 
-  const [cursor, setCursor] = useState<{ svgX: number; income: number } | null>(null);
+  const userBin = useMemo(() => findIncomeBin(bins, scenario.income), [bins, scenario.income]);
+  const userX = Math.min(Math.max(x(scenario.income), mg.left), W - mg.right);
+
+  const [hoverBin, setHoverBin] = useState<d3.Bin<{ incomeMonthly: number; approved: boolean }, number> | null>(
+    null
+  );
+
+  const hoverStats = hoverBin && hoverBin.length > 0 ? binStats(hoverBin) : null;
+  const userStats = userBin && userBin.length > 0 ? binStats(userBin) : null;
+  const hoverX = hoverBin ? Math.min(Math.max(x(binCenter(hoverBin)), mg.left), W - mg.right) : null;
+  const sameAsUser =
+    hoverBin != null &&
+    userBin != null &&
+    (hoverBin.x0 ?? 0) === (userBin.x0 ?? 0) &&
+    (hoverBin.x1 ?? 0) === (userBin.x1 ?? 0);
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const scale = W / rect.width;
     const svgX = (e.clientX - rect.left) * scale;
-    if (svgX >= mg.left && svgX <= W - mg.right) {
-      setCursor({ svgX, income: x.invert(svgX) });
-    } else {
-      setCursor(null);
+    if (svgX < mg.left || svgX > W - mg.right) {
+      setHoverBin(null);
+      onBrushIncome?.(null);
+      return;
     }
+    const bin = findIncomeBin(bins, x.invert(svgX));
+    setHoverBin(bin);
+    onBrushIncome?.(bin ? binCenter(bin) : null);
   };
+
+  const infoLine = hoverStats
+    ? sameAsUser
+      ? `Your income · $${(scenario.income / 1000).toFixed(1)}k/mo · ${hoverStats.approved} approved · ${hoverStats.denied} denied`
+      : `$${((hoverBin?.x0 ?? 0) / 1000).toFixed(0)}k–$${((hoverBin?.x1 ?? 0) / 1000).toFixed(0)}k/mo · ${hoverStats.approved} approved · ${hoverStats.denied} denied`
+    : userStats
+      ? `Your income · $${(scenario.income / 1000).toFixed(1)}k/mo · ${userStats.approved} approved · ${userStats.denied} denied in your band`
+      : `Your income · $${(scenario.income / 1000).toFixed(1)}k/mo`;
 
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       className="histogram-chart"
       role="img"
-      aria-label="Income distribution for selected market"
+      aria-label="Histogram of HMDA applications by monthly income, stacked approved versus denied"
       onMouseMove={handleMouseMove}
-      onMouseLeave={() => setCursor(null)}
+      onMouseLeave={() => {
+        setHoverBin(null);
+        onBrushIncome?.(null);
+      }}
     >
       <defs>
         <linearGradient id="approvedGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#06b6d4" />
-          <stop offset="100%" stopColor="#10b981" />
+          <stop offset="0%" stopColor="var(--chart-approved-start)" />
+          <stop offset="100%" stopColor="var(--chart-approved-end)" />
         </linearGradient>
         <linearGradient id="deniedGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#fb7185" />
-          <stop offset="100%" stopColor="#f43f5e" />
+          <stop offset="0%" stopColor="var(--chart-denied-start)" />
+          <stop offset="100%" stopColor="var(--chart-denied-end)" />
         </linearGradient>
       </defs>
 
-      {/* Grid lines */}
+      <rect
+        x={mg.left}
+        y={mg.top}
+        width={plotW}
+        height={plotH}
+        rx={8}
+        fill="var(--soft)"
+        opacity={0.55}
+      />
+
+      <text x={mg.left} y={18} fontSize="10" fontWeight="700" fill="var(--ink)">
+        {infoLine}
+      </text>
+
+      <g className="histogram-legend" transform={`translate(${W - mg.right - 76}, 8)`}>
+        <rect x={0} y={0} width={8} height={8} rx={2} fill="url(#approvedGrad)" />
+        <text fontSize="9" fontWeight="700" fill="var(--muted)" x={12} y={8}>
+          Approved
+        </text>
+        <rect x={0} y={14} width={8} height={8} rx={2} fill="url(#deniedGrad)" />
+        <text fontSize="9" fontWeight="700" fill="var(--muted)" x={12} y={22}>
+          Denied
+        </text>
+      </g>
+
       {[0.25, 0.5, 0.75, 1].map((p, idx) => {
-        const val = maxCount * p;
-        const ly = y(val);
+        const ly = y(maxCount * p);
         return (
           <line
             key={idx}
@@ -589,118 +865,171 @@ export function IncomeHistogram({ hmda, scenario }: HistogramProps) {
             x2={W - mg.right}
             y2={ly}
             stroke="var(--line)"
-            strokeOpacity={0.12}
-            strokeDasharray="3 3"
+            strokeOpacity={0.2}
           />
         );
       })}
 
-      <line className="axis-line" x1={mg.left} y1={H - mg.bottom} x2={W - mg.right} y2={H - mg.bottom} stroke="var(--line)" opacity={0.3} />
-      
-      {bins.map((bin, i) => {
-        const bx = x(bin.x0 ?? 0) + 1;
-        const bw = Math.max(x(bin.x1 ?? 0) - x(bin.x0 ?? 0) - 2, 0);
-        const approved = bin.filter(d => d.approved).length;
-        const denied = bin.length - approved;
-        const yApproved = y(approved);
-        const baseline = H - mg.bottom;
+      <line
+        x1={mg.left}
+        y1={H - mg.bottom}
+        x2={W - mg.right}
+        y2={H - mg.bottom}
+        stroke="var(--line)"
+        opacity={0.45}
+      />
 
+      {bins.map((bin, i) => {
+        const pad = 2;
+        const bx = x(bin.x0 ?? 0) + pad;
+        const bw = Math.max(x(bin.x1 ?? 0) - x(bin.x0 ?? 0) - pad * 2, 2);
+        const { approved, denied } = binStats(bin);
+        const baseline = H - mg.bottom;
+        const yApproved = y(approved);
         const approvedH = baseline - yApproved;
-        const deniedH = baseline - y(denied); // Denied height based on its raw count scale
+        const deniedH = baseline - y(denied);
+        const isUser =
+          userBin != null && (bin.x0 ?? 0) === (userBin.x0 ?? 0) && (bin.x1 ?? 0) === (userBin.x1 ?? 0);
+        const isHover =
+          hoverBin != null && (bin.x0 ?? 0) === (hoverBin.x0 ?? 0) && (bin.x1 ?? 0) === (hoverBin.x1 ?? 0);
 
         return (
-          <g key={i}>
-            {/* Approved Bar (bottom stacked portion) */}
-            {approved > 0 && (
-              denied > 0 ? (
-                /* Flat top when denied bar sits on top of it */
-                <rect
-                  x={bx}
-                  y={yApproved}
-                  width={bw}
-                  height={approvedH}
-                  fill="url(#approvedGrad)"
-                >
-                  <title>{approved} approved</title>
-                </rect>
-              ) : (
-                /* Rounded top when it's the only bar segment */
-                <path
-                  d={getRoundedTopPath(bx, yApproved, bw, approvedH, 4)}
-                  fill="url(#approvedGrad)"
-                >
-                  <title>{approved} approved</title>
-                </path>
-              )
+          <g key={i} aria-label={`${approved} approved, ${denied} denied`}>
+            {(isUser || isHover) && (
+              <rect
+                x={bx - 1}
+                y={mg.top}
+                width={bw + 2}
+                height={plotH}
+                fill={isUser ? "var(--you)" : "var(--chart-brush-stroke)"}
+                opacity={isUser ? 0.1 : 0.07}
+                rx={4}
+              />
             )}
-
-            {/* Denied Bar (sits on top of approved) */}
+            {approved > 0 &&
+              (denied > 0 ? (
+                <rect x={bx} y={yApproved} width={bw} height={approvedH} fill="url(#approvedGrad)" />
+              ) : (
+                <path
+                  d={getRoundedTopPath(bx, yApproved, bw, approvedH, 3)}
+                  fill="url(#approvedGrad)"
+                />
+              ))}
             {denied > 0 && (
               <path
-                d={getRoundedTopPath(bx, yApproved - deniedH, bw, deniedH, 4)}
+                d={getRoundedTopPath(bx, yApproved - deniedH, bw, deniedH, 3)}
                 fill="url(#deniedGrad)"
-              >
-                <title>{denied} denied</title>
-              </path>
+              />
             )}
           </g>
         );
       })}
 
-      {/* User income marker (Glowing Golden Pin & Pulsing Dot) */}
-      <line x1={x(scenario.income)} y1={mg.top + 8} x2={x(scenario.income)} y2={H - mg.bottom}
-        stroke="var(--gold)" strokeWidth={3} opacity={0.2} strokeLinecap="round" />
-      <line x1={x(scenario.income)} y1={mg.top + 8} x2={x(scenario.income)} y2={H - mg.bottom}
-        stroke="var(--gold)" strokeWidth={1} strokeDasharray="3 3" />
-      
-      {/* Target intersection glowing circle */}
-      <circle cx={x(scenario.income)} cy={H - mg.bottom} r={4} fill="var(--gold)" opacity={0.8} />
-      <circle cx={x(scenario.income)} cy={H - mg.bottom} r={8} fill="none" stroke="var(--gold)" strokeWidth={1.5} opacity={0.4} />
-
-      <g transform={`translate(${x(scenario.income)}, ${mg.top + 6})`}>
-        <rect x={-16} y={-8} width={32} height={16} rx={8} fill="var(--gold)" />
-        <text fontSize="8" fontWeight="900" fill="#0f172a" textAnchor="middle" y={3}>YOU</text>
+      <g style={{ pointerEvents: "none" }}>
+        <line
+          x1={userX}
+          y1={mg.top}
+          x2={userX}
+          y2={H - mg.bottom}
+          stroke="var(--you)"
+          strokeWidth={2}
+          opacity={0.85}
+        />
+        <polygon
+          points={`${userX},${H - mg.bottom} ${userX - 5},${H - mg.bottom + 7} ${userX + 5},${H - mg.bottom + 7}`}
+          fill="var(--you)"
+        />
+        {hoverX != null && !sameAsUser && (
+          <line
+            x1={hoverX}
+            y1={mg.top}
+            x2={hoverX}
+            y2={H - mg.bottom}
+            stroke="var(--chart-brush-stroke)"
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            opacity={0.9}
+          />
+        )}
       </g>
 
-      {/* X ticks */}
-      {x.ticks(6).map(tick => (
-        <text key={tick} fontSize="9" fill="var(--muted)" fontWeight="600" textAnchor="middle"
-          x={x(tick)} y={H - mg.bottom + 14}>${(tick / 1000).toFixed(0)}k</text>
+      {x.ticks(5).map(tick => (
+        <text
+          key={tick}
+          fontSize="9"
+          fill="var(--muted)"
+          fontWeight="600"
+          textAnchor="middle"
+          x={x(tick)}
+          y={H - mg.bottom + 16}
+        >
+          ${(tick / 1000).toFixed(0)}k
+        </text>
       ))}
 
-      {/* Elegant Legend */}
-      <g transform={`translate(${W - mg.right - 90}, ${mg.top - 8})`}>
-        <rect x={0} y={0} width={8} height={8} rx={2} fill="url(#approvedGrad)" />
-        <text fontSize="9" fontWeight="700" fill="var(--muted)" x={12} y={8}>Approved</text>
-        
-        <rect x={0} y={14} width={8} height={8} rx={2} fill="url(#deniedGrad)" />
-        <text fontSize="9" fontWeight="700" fill="var(--muted)" x={12} y={22}>Denied</text>
-      </g>
+      <text
+        fontSize="10"
+        fill="var(--muted)"
+        fontWeight="600"
+        textAnchor="middle"
+        x={mg.left + plotW / 2}
+        y={H - 4}
+      >
+        Monthly income
+      </text>
+    </svg>
+  );
+}
 
-      <text fontSize="10" fill="var(--muted)" fontWeight="600" textAnchor="middle"
-        x={mg.left + (W - mg.left - mg.right) / 2} y={H - 6}>Monthly income</text>
+const COUNTY_LABELS: Record<string, string> = {
+  "6037.0": "Los Angeles",
+  "6073.0": "San Diego",
+  "6067.0": "Sacramento",
+  "6001.0": "Alameda",
+};
 
-      {/* Crosshair */}
-      {cursor && (
-        <g style={{ pointerEvents: "none" }}>
-          <line
-            x1={cursor.svgX}
-            y1={mg.top}
-            x2={cursor.svgX}
-            y2={H - mg.bottom}
-            stroke="var(--muted)"
-            strokeWidth={1}
-            strokeDasharray="4 3"
-            opacity={0.55}
-          />
-          <g transform={`translate(${cursor.svgX}, ${H - mg.bottom + 2})`}>
-            <rect x={-18} y={0} width={36} height={14} rx={4} fill="var(--surface-2, #1e2a3a)" stroke="var(--line)" strokeWidth={0.6} />
-            <text fontSize="8" fontWeight="700" fill="var(--muted)" textAnchor="middle" y={10}>
-              ${(cursor.income / 1000).toFixed(1)}k
+export function CountyCalibrationChart({
+  rows
+}: {
+  rows: Array<{
+    county: string;
+    actualApprovalRate: number;
+    predictedApprovalRate: number;
+    rows: number;
+  }>;
+}) {
+  const width = 520;
+  const height = 220;
+  const margin = { top: 18, right: 20, bottom: 42, left: 108 };
+  const plotW = width - margin.left - margin.right;
+  const barH = 24;
+  const gap = 10;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="county-calibration-chart" role="img" aria-label="County approval calibration">
+      {rows.map((row, index) => {
+        const y = margin.top + index * (barH + gap);
+        const label = COUNTY_LABELS[row.county] ?? row.county;
+        const actualW = row.actualApprovalRate * plotW;
+        const predictedW = row.predictedApprovalRate * plotW;
+        return (
+          <g key={row.county}>
+            <text fontSize="10" fill="var(--muted)" x={margin.left - 8} y={y + barH / 2 + 4} textAnchor="end">{label}</text>
+            <rect x={margin.left} y={y} width={plotW} height={barH} rx={4} fill="var(--soft)" opacity={0.65} />
+            <rect x={margin.left} y={y + 4} width={actualW} height={8} rx={3} fill="var(--teal)" opacity={0.85} />
+            <rect x={margin.left} y={y + 13} width={predictedW} height={8} rx={3} fill="var(--blue)" opacity={0.85} />
+            <text fontSize="9" fill="var(--muted)" x={margin.left + plotW + 6} y={y + barH / 2 + 3}>
+              n={row.rows}
             </text>
           </g>
-        </g>
-      )}
+        );
+      })}
+      <g transform={`translate(${margin.left}, ${height - 18})`}>
+        <rect x={0} y={0} width={8} height={8} rx={2} fill="var(--teal)" />
+        <text fontSize="9" fill="var(--muted)" x={12} y={8}>Actual</text>
+        <rect x={70} y={0} width={8} height={8} rx={2} fill="var(--blue)" />
+        <text fontSize="9" fill="var(--muted)" x={82} y={8}>Predicted</text>
+      </g>
     </svg>
   );
 }
