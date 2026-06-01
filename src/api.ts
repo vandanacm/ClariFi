@@ -96,6 +96,11 @@ export const api = {
     method: "POST",
     body: JSON.stringify({ question, scenario })
   }),
+  saveScenario: (scenario: ScenarioInput) => request<ScoreResult>("/api/scenarios", {
+    method: "POST",
+    body: JSON.stringify(scenario)
+  }),
+  listScenarios: () => request<{ scenarios: Array<{ id: string; createdAt: string; input: ScenarioInput; result: ScoreResult }> }>("/api/scenarios"),
   uploadTransactions: async (file: File) => {
     const form = new FormData();
     form.append("file", file);

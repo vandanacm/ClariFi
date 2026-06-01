@@ -14,7 +14,8 @@ import {
   ExpenseDonut,
   HmdaScatter,
   IncomeHistogram,
-  RiskSurface
+  RiskSurface,
+  ShapWaterfallChart
 } from "./charts";
 import type {
   BenchmarkModel,
@@ -203,6 +204,8 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
   const [hoveredExpenseKey, setHoveredExpenseKey] = useState<string | null>(null);
+  const [savedScenarios, setSavedScenarios] = useState<Array<{ id: string; createdAt: string; input: ScenarioInput; result: ScoreResult }>>([]);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   useEffect(() => {
     let ignore = false;
@@ -266,6 +269,7 @@ function App() {
             expenses: hints.expenses ?? current.expenses
           }));
         }
+        loadSavedScenarios();
       }
       setAuthLoading(false);
     }
@@ -351,6 +355,7 @@ function App() {
     setAuthUser(user);
     setShowAuth(false);
     navigate("/dashboard");
+    loadSavedScenarios();
     try {
       const financeData = await api.financeSummary();
       setFinanceSummary(financeData);
@@ -431,6 +436,26 @@ function App() {
     } catch (error) {
       console.warn(error);
       setUploadStatus("Upload failed");
+    }
+  }
+
+  async function loadSavedScenarios() {
+    try {
+      const data = await api.listScenarios();
+      setSavedScenarios(data.scenarios ?? []);
+    } catch {}
+  }
+
+  async function saveCurrentScenario() {
+    if (saveStatus === "saving") return;
+    setSaveStatus("saving");
+    try {
+      await api.saveScenario(scenario);
+      await loadSavedScenarios();
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+    } catch {
+      setSaveStatus("idle");
     }
   }
 
@@ -873,6 +898,16 @@ function App() {
                 </div>
               ))}
             </div>
+            {authUser && (
+              <button
+                className={`save-scenario-btn${saveStatus === "saved" ? " saved" : ""}`}
+                type="button"
+                onClick={saveCurrentScenario}
+                disabled={saveStatus === "saving"}
+              >
+                {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "✓ Saved" : "Save Scenario"}
+              </button>
+            )}
           </article>
         </section>
 
@@ -1015,7 +1050,106 @@ function App() {
             </div>
             <RiskSurface score={score} />
           </article>
+
+          <article className="analysis-panel wide-panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Feature impact</p>
+                <h2>What's driving your approval likelihood</h2>
+                <p className="panel-note">
+                  Each bar shows how much nudging that factor up or down would shift your estimated approval
+                  probability. Green = currently helping your score; red = currently limiting it.
+                </p>
+                <p className="panel-note">
+                  Values are finite-difference perturbations on your current scenario — not a global model explanation.
+                  Bars update as you adjust the sliders above.
+                </p>
+              </div>
+              <span className="status-pill muted">
+                {score.explanationMode === "model-perturbation" ? "Model perturbation" : "Scenario drivers"}
+              </span>
+            </div>
+            <ShapWaterfallChart score={score} />
+          </article>
         </section>
+
+        {savedScenarios.length > 0 && (
+          <section className="compare-section app-section" aria-label="Saved scenario comparison">
+            <div className="compare-header">
+              <div>
+                <p className="panel-kicker">Scenario history</p>
+                <h2>Compare saved profiles</h2>
+                <p className="panel-note">
+                  Showing your {Math.min(savedScenarios.length, 4)} most recent saved scenarios side-by-side.
+                  Green highlights the best value per row.
+                </p>
+              </div>
+            </div>
+            <div className="compare-table-wrap">
+              <table className="compare-table">
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    {savedScenarios.slice(0, 4).map(s => (
+                      <th key={s.id}>
+                        {s.input.market}
+                        <br />
+                        <small>{new Date(s.createdAt).toLocaleDateString()}</small>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    {
+                      label: "Annual income",
+                      fmt: (s: typeof savedScenarios[0]) => money.format(s.input.income * 12),
+                      best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.input.income > b.input.income ? a : b).id
+                    },
+                    {
+                      label: "Approval likelihood",
+                      fmt: (s: typeof savedScenarios[0]) => s.result.approvalLikelihood != null ? percent.format(s.result.approvalLikelihood) : "—",
+                      best: (vals: typeof savedScenarios) => vals.reduce((a, b) => (a.result.approvalLikelihood ?? 0) > (b.result.approvalLikelihood ?? 0) ? a : b).id
+                    },
+                    {
+                      label: "Readiness score",
+                      fmt: (s: typeof savedScenarios[0]) => s.result.score != null ? `${s.result.score}/100` : "—",
+                      best: (vals: typeof savedScenarios) => vals.reduce((a, b) => (a.result.score ?? 0) > (b.result.score ?? 0) ? a : b).id
+                    },
+                    {
+                      label: "Debt-to-income",
+                      fmt: (s: typeof savedScenarios[0]) => percent.format(s.result.dti),
+                      best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.result.dti < b.result.dti ? a : b).id
+                    },
+                    {
+                      label: "Down payment",
+                      fmt: (s: typeof savedScenarios[0]) => percent.format(s.result.downPaymentRate),
+                      best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.result.downPaymentRate > b.result.downPaymentRate ? a : b).id
+                    },
+                    {
+                      label: "Monthly surplus",
+                      fmt: (s: typeof savedScenarios[0]) => money.format(s.result.monthlySurplus),
+                      best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.result.monthlySurplus > b.result.monthlySurplus ? a : b).id
+                    }
+                  ].map(row => {
+                    const slice = savedScenarios.slice(0, 4);
+                    const bestId = row.best(slice);
+                    return (
+                      <tr key={row.label}>
+                        <td className="compare-metric-label">{row.label}</td>
+                        {slice.map(s => (
+                          <td key={s.id} className={s.id === bestId ? "compare-best" : ""}>
+                            {row.fmt(s)}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         <section className="bias-disclaimer" aria-label="Model fairness and limitations">
           <div className="bias-disclaimer-inner">
