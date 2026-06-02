@@ -1,0 +1,17 @@
+id,date,merchant,category,amount
+bay-001,2026-04-01,Employer Payroll,income,6400
+bay-002,2026-04-15,Employer Payroll,income,6400
+bay-003,2026-04-01,East Bay Rent,housing,-3600
+bay-004,2026-04-04,Trader Joes + Safeway,food,-620
+bay-005,2026-04-09,Gas + Transit,transport,-460
+bay-006,2026-04-06,Student + Credit Debt,debt,-1200
+bay-007,2026-04-12,Lifestyle Spend,lifestyle,-900
+bay-008,2026-04-07,Savings Transfer,savings,-1300
+bay-009,2026-05-01,Employer Payroll,income,6400
+bay-010,2026-05-15,Employer Payroll,income,6400
+bay-011,2026-05-01,East Bay Rent,housing,-3600
+bay-012,2026-05-04,Trader Joes + Safeway,food,-610
+bay-013,2026-05-09,Gas + Transit,transport,-450
+bay-014,2026-05-06,Student + Credit Debt,debt,-1200
+bay-015,2026-05-12,Lifestyle Spend,lifestyle,-920
+bay-016,2026-05-07,Savings Transfer,savings,-1300

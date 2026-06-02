@@ -1,0 +1,17 @@
+id,date,merchant,category,amount
+inl-001,2026-04-01,Employer Payroll,income,3100
+inl-002,2026-04-15,Employer Payroll,income,3100
+inl-003,2026-04-01,Inland Rent,housing,-2100
+inl-004,2026-04-04,Groceries,food,-470
+inl-005,2026-04-08,Gas + Bus,transport,-300
+inl-006,2026-04-06,Loan + Card Debt,debt,-1400
+inl-007,2026-04-12,Lifestyle Spend,lifestyle,-520
+inl-008,2026-04-07,Savings Transfer,savings,-250
+inl-009,2026-05-01,Employer Payroll,income,3100
+inl-010,2026-05-15,Employer Payroll,income,3100
+inl-011,2026-05-01,Inland Rent,housing,-2100
+inl-012,2026-05-04,Groceries,food,-455
+inl-013,2026-05-08,Gas + Bus,transport,-295
+inl-014,2026-05-06,Loan + Card Debt,debt,-1400
+inl-015,2026-05-12,Lifestyle Spend,lifestyle,-505
+inl-016,2026-05-07,Savings Transfer,savings,-250

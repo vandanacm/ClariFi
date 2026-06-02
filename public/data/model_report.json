@@ -1,213 +1,118 @@
 {
-  "generatedAt": "2026-05-14T17:48:00.000Z",
-  "modelName": "Calibrated XGBoost HMDA readiness model",
-  "note": "Leakage-controlled HMDA 2025 California model. Interest rate and sensitive demographic fields are excluded from the readiness score. Probabilities are isotonic-calibrated for educational dashboard exploration only.",
+  "generatedAt": "2026-06-01T06:46:53.096457+00:00",
+  "modelName": "XGBoost HMDA 2025 readiness model",
+  "note": "Leakage-controlled HMDA model. Interest rate and sensitive demographic fields are excluded from the readiness score. Use for educational exploration, not lending advice.",
   "rows": {
-    "total": 58000,
-    "train": 46400,
-    "test": 11600
+    "total": 58012,
+    "train": 37127,
+    "calibration": 9282,
+    "test": 11603
   },
   "metrics": {
     "trainAccuracy": null,
     "testAccuracy": 0.7919503576661209,
-    "testAuc": 0.7191,
-    "rawTestAuc": 0.805521124162116,
+    "testAuc": 0.8040326500013141,
     "averagePrecision": 0.9636824408601274,
-    "rawAveragePrecision": 0.9656835716626441,
     "balancedAccuracy": 0.7352368843595702,
-    "bestThreshold": 0.9,
-    "brierScore": 0.1844,
-    "rawBrierScore": 0.146493154219279,
-    "denialRecall": 0.6646234676007006,
-    "precisionAtThreshold": 0.956541472824237,
-    "recallAtThreshold": 0.8058503011184399,
-    "positiveRateTest": 0.9015771783159527,
-    "trainRows": 46400,
-    "testRows": 11600
+    "bestThreshold": 0.8999999999999999,
+    "brierScore": 0.06320743893562601,
+    "denialRecall": 0.6646234676007006
   },
-  "modelComparison": [
-    {
-      "model": "Logistic Regression baseline",
-      "auc": 0.7290717954822106,
-      "averagePrecision": 0.9507509356457712,
-      "f1": 0.7929805013927577,
-      "balancedAccuracy": 0.6772960898381462
-    },
-    {
-      "model": "Raw XGBoost tuned",
-      "auc": 0.805521124162116,
-      "averagePrecision": 0.9656835716626441,
-      "brierScore": 0.146493154219279
-    },
-    {
-      "model": "Calibrated XGBoost tuned",
-      "auc": 0.8040326500013141,
-      "averagePrecision": 0.9636824408601274,
-      "f1": 0.8747535540105842,
-      "balancedAccuracy": 0.7352368843595702,
-      "brierScore": 0.06320743893562601
-    }
-  ],
-  "calibration": [
-    {
-      "bin": "(-0.001, 0.843]",
-      "applications": 1264,
-      "predictedRate": 0.5317032819531292,
-      "actualRate": 0.5379746835443038,
-      "rawPredictedRate": 0.195187
-    },
-    {
-      "bin": "(0.843, 0.888]",
-      "applications": 1124,
-      "predictedRate": 0.8731097149467129,
-      "actualRate": 0.8825622775800712,
-      "rawPredictedRate": 0.480899
-    },
-    {
-      "bin": "(0.888, 0.93]",
-      "applications": 1348,
-      "predictedRate": 0.914957,
-      "actualRate": 0.910979,
-      "rawPredictedRate": 0.57046
-    },
-    {
-      "bin": "(0.93, 0.942]",
-      "applications": 1072,
-      "predictedRate": 0.941601,
-      "actualRate": 0.940299,
-      "rawPredictedRate": 0.628004
-    },
-    {
-      "bin": "(0.942, 0.959]",
-      "applications": 1976,
-      "predictedRate": 0.958576,
-      "actualRate": 0.95496,
-      "rawPredictedRate": 0.676055
-    },
-    {
-      "bin": "(0.959, 0.962]",
-      "applications": 799,
-      "predictedRate": 0.9616519212722778,
-      "actualRate": 0.9599499374217773,
-      "rawPredictedRate": 0.711936
-    },
-    {
-      "bin": "(0.962, 0.968]",
-      "applications": 2804,
-      "predictedRate": 0.968208,
-      "actualRate": 0.965763,
-      "rawPredictedRate": 0.760138
-    },
-    {
-      "bin": "(0.968, 0.98]",
-      "applications": 867,
-      "predictedRate": 0.9799480403858347,
-      "actualRate": 0.9792387543252595,
-      "rawPredictedRate": 0.824101
-    },
-    {
-      "bin": "(0.98, 1.0]",
-      "applications": 349,
-      "predictedRate": 0.9925505477924401,
-      "actualRate": 0.9799426934097422,
-      "rawPredictedRate": 0.87173
-    }
-  ],
   "features": [
     {
       "feature": "num__dti_numeric",
-      "label": "DTI numeric",
+      "label": "dti numeric",
       "coefficient": 0.3176825940608978,
       "direction": "positive",
       "magnitude": 0.6919005513191223
     },
     {
       "feature": "num__down_payment_rate_proxy",
-      "label": "Down payment rate proxy",
-      "coefficient": 0.044697,
+      "label": "down payment rate proxy",
+      "coefficient": 0.044696636497974396,
       "direction": "positive",
-      "magnitude": 0.153453
+      "magnitude": 0.1534527987241745
     },
     {
       "feature": "cat__loan_type_1",
-      "label": "Loan type 1",
-      "coefficient": -0.045051,
+      "label": "loan type 1",
+      "coefficient": -0.045051101595163345,
       "direction": "negative",
-      "magnitude": 0.152376
+      "magnitude": 0.15237616002559662
     },
     {
       "feature": "num__loan_vs_county_median",
-      "label": "Loan vs county median",
-      "coefficient": 0.013775,
+      "label": "loan vs county median",
+      "coefficient": 0.013774601742625237,
       "direction": "positive",
-      "magnitude": 0.118627
+      "magnitude": 0.11862662434577942
     },
     {
       "feature": "num__loan_to_income",
-      "label": "Loan to income",
-      "coefficient": 0.040568,
+      "label": "loan to income",
+      "coefficient": 0.04056798294186592,
       "direction": "positive",
-      "magnitude": 0.100088
+      "magnitude": 0.10008761286735535
     },
     {
       "feature": "num__county_applications",
-      "label": "County applications",
-      "coefficient": 0.008177,
+      "label": "county applications",
+      "coefficient": 0.008176816627383232,
       "direction": "positive",
-      "magnitude": 0.099834
+      "magnitude": 0.09983424842357635
     },
     {
       "feature": "num__income_vs_county_median",
-      "label": "Income vs county median",
-      "coefficient": 0.027577,
+      "label": "income vs county median",
+      "coefficient": 0.027576880529522896,
       "direction": "positive",
-      "magnitude": 0.096038
+      "magnitude": 0.09603752940893173
     },
     {
       "feature": "num__loan_term",
-      "label": "Loan term",
-      "coefficient": 0.03682,
+      "label": "loan term",
+      "coefficient": 0.03682047128677368,
       "direction": "positive",
-      "magnitude": 0.0898
+      "magnitude": 0.08979965001344681
     },
     {
       "feature": "cat__loan_type_3",
-      "label": "Loan type 3",
-      "coefficient": -0.011155,
+      "label": "loan type 3",
+      "coefficient": -0.011154921725392342,
       "direction": "negative",
-      "magnitude": 0.07216
+      "magnitude": 0.07216015458106995
     },
     {
       "feature": "num__property_value",
-      "label": "Property value",
+      "label": "property value",
       "coefficient": 0.02232513204216957,
       "direction": "positive",
       "magnitude": 0.06646836549043655
     },
     {
       "feature": "cat__loan_type_2",
-      "label": "Loan type 2",
-      "coefficient": 0.004042,
+      "label": "loan type 2",
+      "coefficient": 0.004042052663862705,
       "direction": "positive",
-      "magnitude": 0.046625
+      "magnitude": 0.046624526381492615
     },
     {
       "feature": "num__combined_loan_to_value_ratio",
-      "label": "Combined loan-to-value ratio",
+      "label": "combined loan to value ratio",
       "coefficient": 0.012670380063354969,
       "direction": "positive",
       "magnitude": 0.037333954125642776
     }
   ],
   "featurePolicy": {
-    "excludedLeakageFields": [
+    "excluded_leakage_fields": [
       "interest_rate"
     ],
-    "fairnessAuditOnlyFields": [
+    "fairness_audit_only_fields": [
       "applicant_age",
       "applicant_sex"
     ],
-    "usedNumericFeatures": [
+    "used_numeric_features": [
       "loan_amount",
       "income",
       "property_value",
@@ -230,7 +135,7 @@
       "income_decile",
       "loan_amount_decile"
     ],
-    "usedCategoricalFeatures": [
+    "used_categorical_features": [
       "county_code",
       "loan_type"
     ]
@@ -239,37 +144,233 @@
     {
       "county": "6039.0",
       "rows": 107,
-      "actualApprovalRate": 0.906542,
-      "predictedApprovalRate": 0.888213,
-      "errorRate": 0.327103
+      "actualApprovalRate": 0.9065420560747663,
+      "predictedApprovalRate": 0.8882134759398265,
+      "errorRate": 0.32710280373831774
     },
     {
       "county": "6029.0",
       "rows": 353,
-      "actualApprovalRate": 0.875354,
-      "predictedApprovalRate": 0.89301,
-      "errorRate": 0.300283
+      "actualApprovalRate": 0.8753541076487252,
+      "predictedApprovalRate": 0.8930095762394306,
+      "errorRate": 0.3002832861189802
     },
     {
       "county": "6065.0",
       "rows": 1131,
-      "actualApprovalRate": 0.883289,
-      "predictedApprovalRate": 0.881865,
-      "errorRate": 0.289125
+      "actualApprovalRate": 0.883289124668435,
+      "predictedApprovalRate": 0.8818648206275929,
+      "errorRate": 0.2891246684350133
     },
     {
       "county": "6073.0",
       "rows": 1051,
-      "actualApprovalRate": 0.892483,
-      "predictedApprovalRate": 0.899827,
-      "errorRate": 0.256898
+      "actualApprovalRate": 0.8924833491912464,
+      "predictedApprovalRate": 0.8998270739086122,
+      "errorRate": 0.25689819219790677
     },
     {
       "county": "6037.0",
       "rows": 1843,
-      "actualApprovalRate": 0.881715,
-      "predictedApprovalRate": 0.877478,
-      "errorRate": 0.245252
+      "actualApprovalRate": 0.8817145957677699,
+      "predictedApprovalRate": 0.8774776380191791,
+      "errorRate": 0.24525230602278894
+    },
+    {
+      "county": "6019.0",
+      "rows": 298,
+      "actualApprovalRate": 0.9093959731543624,
+      "predictedApprovalRate": 0.9094245984850314,
+      "errorRate": 0.24496644295302014
+    },
+    {
+      "county": "6071.0",
+      "rows": 810,
+      "actualApprovalRate": 0.8925925925925926,
+      "predictedApprovalRate": 0.8892263234121563,
+      "errorRate": 0.24074074074074073
+    },
+    {
+      "county": "6111.0",
+      "rows": 252,
+      "actualApprovalRate": 0.9087301587301587,
+      "predictedApprovalRate": 0.9135521070233413,
+      "errorRate": 0.21825396825396826
+    },
+    {
+      "county": "6053.0",
+      "rows": 78,
+      "actualApprovalRate": 0.8589743589743589,
+      "predictedApprovalRate": 0.8363382042600558,
+      "errorRate": 0.21794871794871795
+    },
+    {
+      "county": "6047.0",
+      "rows": 80,
+      "actualApprovalRate": 0.9125,
+      "predictedApprovalRate": 0.9107454023323953,
+      "errorRate": 0.2125
+    },
+    {
+      "county": "6099.0",
+      "rows": 199,
+      "actualApprovalRate": 0.9045226130653267,
+      "predictedApprovalRate": 0.8944860612177968,
+      "errorRate": 0.20603015075376885
+    },
+    {
+      "county": "6031.0",
+      "rows": 68,
+      "actualApprovalRate": 0.9264705882352942,
+      "predictedApprovalRate": 0.9267479198820451,
+      "errorRate": 0.20588235294117646
+    },
+    {
+      "county": "6007.0",
+      "rows": 88,
+      "actualApprovalRate": 0.8522727272727273,
+      "predictedApprovalRate": 0.9014416662129489,
+      "errorRate": 0.20454545454545456
+    },
+    {
+      "county": "6059.0",
+      "rows": 726,
+      "actualApprovalRate": 0.8870523415977961,
+      "predictedApprovalRate": 0.9045410214233168,
+      "errorRate": 0.20110192837465565
+    },
+    {
+      "county": "6083.0",
+      "rows": 93,
+      "actualApprovalRate": 0.8924731182795699,
+      "predictedApprovalRate": 0.8451398413988852,
+      "errorRate": 0.1935483870967742
+    },
+    {
+      "county": "6013.0",
+      "rows": 411,
+      "actualApprovalRate": 0.9294403892944039,
+      "predictedApprovalRate": 0.9140817540224161,
+      "errorRate": 0.1873479318734793
+    },
+    {
+      "county": "6107.0",
+      "rows": 143,
+      "actualApprovalRate": 0.8671328671328671,
+      "predictedApprovalRate": 0.9067087120838933,
+      "errorRate": 0.18181818181818182
+    },
+    {
+      "county": "6115.0",
+      "rows": 58,
+      "actualApprovalRate": 1.0,
+      "predictedApprovalRate": 0.9427823033826105,
+      "errorRate": 0.1724137931034483
+    },
+    {
+      "county": "6001.0",
+      "rows": 430,
+      "actualApprovalRate": 0.9186046511627907,
+      "predictedApprovalRate": 0.9181064419448376,
+      "errorRate": 0.1558139534883721
+    },
+    {
+      "county": "6095.0",
+      "rows": 201,
+      "actualApprovalRate": 0.9154228855721394,
+      "predictedApprovalRate": 0.9060218462081098,
+      "errorRate": 0.15422885572139303
+    },
+    {
+      "county": "6077.0",
+      "rows": 339,
+      "actualApprovalRate": 0.9203539823008849,
+      "predictedApprovalRate": 0.9263112546771677,
+      "errorRate": 0.14454277286135694
+    },
+    {
+      "county": "6087.0",
+      "rows": 65,
+      "actualApprovalRate": 0.8923076923076924,
+      "predictedApprovalRate": 0.9254780842707707,
+      "errorRate": 0.13846153846153847
+    },
+    {
+      "county": "6075.0",
+      "rows": 175,
+      "actualApprovalRate": 0.9314285714285714,
+      "predictedApprovalRate": 0.9460125195980073,
+      "errorRate": 0.13714285714285715
+    },
+    {
+      "county": "6081.0",
+      "rows": 197,
+      "actualApprovalRate": 0.9238578680203046,
+      "predictedApprovalRate": 0.9307264196993735,
+      "errorRate": 0.13705583756345177
+    },
+    {
+      "county": "6067.0",
+      "rows": 635,
+      "actualApprovalRate": 0.925984251968504,
+      "predictedApprovalRate": 0.9148426287990855,
+      "errorRate": 0.13385826771653545
+    },
+    {
+      "county": "6089.0",
+      "rows": 61,
+      "actualApprovalRate": 0.9672131147540983,
+      "predictedApprovalRate": 0.9359235855155303,
+      "errorRate": 0.13114754098360656
+    },
+    {
+      "county": "6085.0",
+      "rows": 518,
+      "actualApprovalRate": 0.9111969111969112,
+      "predictedApprovalRate": 0.9274782131652575,
+      "errorRate": 0.1138996138996139
+    },
+    {
+      "county": "6079.0",
+      "rows": 80,
+      "actualApprovalRate": 0.9125,
+      "predictedApprovalRate": 0.9278238553553819,
+      "errorRate": 0.1125
+    },
+    {
+      "county": "6017.0",
+      "rows": 96,
+      "actualApprovalRate": 0.9375,
+      "predictedApprovalRate": 0.9342544598815342,
+      "errorRate": 0.10416666666666667
+    },
+    {
+      "county": "6041.0",
+      "rows": 59,
+      "actualApprovalRate": 0.9491525423728814,
+      "predictedApprovalRate": 0.954819614730649,
+      "errorRate": 0.1016949152542373
+    },
+    {
+      "county": "6061.0",
+      "rows": 269,
+      "actualApprovalRate": 0.929368029739777,
+      "predictedApprovalRate": 0.9482217727429805,
+      "errorRate": 0.09293680297397769
+    },
+    {
+      "county": "6113.0",
+      "rows": 71,
+      "actualApprovalRate": 0.8732394366197183,
+      "predictedApprovalRate": 0.8595536048983184,
+      "errorRate": 0.08450704225352113
+    },
+    {
+      "county": "6097.0",
+      "rows": 163,
+      "actualApprovalRate": 0.9631901840490797,
+      "predictedApprovalRate": 0.9463746263845566,
+      "errorRate": 0.07975460122699386
     }
   ]
 }

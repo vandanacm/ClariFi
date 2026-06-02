@@ -1,0 +1,17 @@
+id,date,merchant,category,amount
+sac-001,2026-04-01,Employer Payroll,income,4600
+sac-002,2026-04-15,Employer Payroll,income,4600
+sac-003,2026-04-01,Sacramento Rent,housing,-2350
+sac-004,2026-04-04,Groceries,food,-520
+sac-005,2026-04-08,Fuel + Commute,transport,-340
+sac-006,2026-04-06,Auto + Card Debt,debt,-950
+sac-007,2026-04-12,Lifestyle Spend,lifestyle,-760
+sac-008,2026-04-07,Savings Transfer,savings,-900
+sac-009,2026-05-01,Employer Payroll,income,4600
+sac-010,2026-05-15,Employer Payroll,income,4600
+sac-011,2026-05-01,Sacramento Rent,housing,-2350
+sac-012,2026-05-04,Groceries,food,-540
+sac-013,2026-05-08,Fuel + Commute,transport,-355
+sac-014,2026-05-06,Auto + Card Debt,debt,-950
+sac-015,2026-05-12,Lifestyle Spend,lifestyle,-740
+sac-016,2026-05-07,Savings Transfer,savings,-900

@@ -1,0 +1,17 @@
+id,date,merchant,category,amount
+sf-001,2026-04-01,Tech Employer Payroll,income,9250
+sf-002,2026-04-15,Tech Employer Payroll,income,9250
+sf-003,2026-04-01,SF Apartment Rent,housing,-5200
+sf-004,2026-04-05,Whole Foods,food,-420
+sf-005,2026-04-10,Caltrain + BART,transport,-320
+sf-006,2026-04-06,Auto + Card Debt,debt,-900
+sf-007,2026-04-12,Dining + Lifestyle,lifestyle,-1150
+sf-008,2026-04-08,Brokerage Transfer,savings,-2500
+sf-009,2026-05-01,Tech Employer Payroll,income,9250
+sf-010,2026-05-15,Tech Employer Payroll,income,9250
+sf-011,2026-05-01,SF Apartment Rent,housing,-5200
+sf-012,2026-05-05,Whole Foods,food,-410
+sf-013,2026-05-10,Caltrain + BART,transport,-305
+sf-014,2026-05-06,Auto + Card Debt,debt,-900
+sf-015,2026-05-12,Dining + Lifestyle,lifestyle,-1180
+sf-016,2026-05-08,Brokerage Transfer,savings,-2500

@@ -88,15 +88,18 @@ except Exception:  # pragma: no cover - optional until API deps are installed
 MONGO_CLIENT = None
 MODEL_CACHE: Any = None
 MODEL_LOAD_ERROR: str | None = None
+MONGO_CONNECT_ERROR: str | None = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DATA = PROJECT_ROOT / "public" / "data"
 MODEL_PATH = PUBLIC_DATA / "model_outputs" / "hmda_2025_xgboost_calibrated_pipeline.joblib"
-MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_URI = (os.getenv("MONGODB_URI") or "").strip() or None
 MONGODB_DB = os.getenv("MONGODB_DB", "clarifi")
 MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "app_store")
 LOCAL_STORE_PATH = PUBLIC_DATA / "local_store.json"
+# When MONGODB_URI is set, default is Atlas-only storage (no silent local JSON fallback).
+MONGODB_FALLBACK_LOCAL = os.getenv("MONGODB_FALLBACK_LOCAL", "false").lower() in ("1", "true", "yes")
 
 app = FastAPI(
     title="ClariFi API",
@@ -111,6 +114,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def mongo_fallback_enabled() -> bool:
+    if not MONGODB_URI:
+        return True
+    return MONGODB_FALLBACK_LOCAL
+
+
+def mongo_store_unavailable_detail() -> str:
+    hint = (
+        "Check MongoDB Atlas → Network Access (allow your IP or 0.0.0.0/0 for dev), "
+        "verify the cluster is running, and confirm MONGODB_URI in .env. "
+        "Set MONGODB_FALLBACK_LOCAL=true only if you intentionally want local JSON storage."
+    )
+    if MONGO_CONNECT_ERROR:
+        return f"MongoDB is unavailable: {MONGO_CONNECT_ERROR}. {hint}"
+    return f"MongoDB is not connected. {hint}"
+
+
+def create_mongo_client():
+    """Build a PyMongo client with certifi CA bundle for Atlas TLS."""
+    if not MONGODB_URI or MongoClient is None:
+        return None
+    try:
+        import certifi
+    except ImportError:
+        certifi = None  # type: ignore
+    kwargs: dict[str, Any] = {
+        "serverSelectionTimeoutMS": 10000,
+        "connectTimeoutMS": 10000,
+        "socketTimeoutMS": 20000,
+    }
+    if certifi is not None:
+        kwargs["tlsCAFile"] = certifi.where()
+    return MongoClient(MONGODB_URI, **kwargs)
 
 
 def load_model_cache() -> bool:
@@ -137,9 +175,18 @@ def load_model_cache() -> bool:
 @app.on_event("startup")
 def startup_mongo_client() -> None:
     """Initialize MongoClient and cache ML artifacts when available."""
-    global MONGO_CLIENT
+    global MONGO_CLIENT, MONGO_CONNECT_ERROR
     if MONGODB_URI and MongoClient is not None:
-        MONGO_CLIENT = MongoClient(MONGODB_URI)
+        try:
+            client = create_mongo_client()
+            client.admin.command("ping")
+            MONGO_CLIENT = client
+            MONGO_CONNECT_ERROR = None
+        except Exception as exc:
+            MONGO_CLIENT = None
+            MONGO_CONNECT_ERROR = str(exc)
+            if not mongo_fallback_enabled():
+                print("MongoDB connection failed (Atlas storage required):", exc)
     load_model_cache()
 
 
@@ -189,30 +236,71 @@ def initial_store() -> dict[str, Any]:
     }
 
 
+def _load_local_store() -> dict[str, Any]:
+    if LOCAL_STORE_PATH.exists():
+        return read_json(LOCAL_STORE_PATH)
+    store = initial_store()
+    with LOCAL_STORE_PATH.open("w", encoding="utf-8") as f:
+        json.dump(store, f)
+    return store
+
+
+def _save_local_store(store: dict[str, Any]) -> None:
+    with LOCAL_STORE_PATH.open("w", encoding="utf-8") as f:
+        json.dump(store, f)
+
+
 def load_store() -> dict[str, Any]:
+    global MONGO_CLIENT, MONGO_CONNECT_ERROR
     if MONGO_CLIENT is None:
-        if LOCAL_STORE_PATH.exists():
-            return read_json(LOCAL_STORE_PATH)
-        store = initial_store()
-        save_store(store)
-        return store
-    collection = MONGO_CLIENT[MONGODB_DB][MONGODB_COLLECTION]
-    doc = collection.find_one({"_id": "clarifi_store"})
-    if not doc:
-        store = initial_store()
-        collection.replace_one({"_id": "clarifi_store"}, {"_id": "clarifi_store", **store}, upsert=True)
-        return store
-    doc.pop("_id", None)
-    return doc
+        if MONGODB_URI and not mongo_fallback_enabled():
+            raise HTTPException(status_code=503, detail=mongo_store_unavailable_detail())
+        return _load_local_store()
+    try:
+        collection = MONGO_CLIENT[MONGODB_DB][MONGODB_COLLECTION]
+        doc = collection.find_one({"_id": "clarifi_store"})
+        if not doc:
+            store = initial_store()
+            collection.replace_one({"_id": "clarifi_store"}, {"_id": "clarifi_store", **store}, upsert=True)
+            return store
+        doc.pop("_id", None)
+        return doc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        MONGO_CONNECT_ERROR = str(exc)
+        try:
+            MONGO_CLIENT.close()
+        except Exception:
+            pass
+        MONGO_CLIENT = None
+        if MONGODB_URI and not mongo_fallback_enabled():
+            raise HTTPException(status_code=503, detail=mongo_store_unavailable_detail()) from exc
+        return _load_local_store()
 
 
 def save_store(store: dict[str, Any]) -> None:
+    global MONGO_CLIENT, MONGO_CONNECT_ERROR
     if MONGO_CLIENT is None:
-        with LOCAL_STORE_PATH.open("w", encoding="utf-8") as f:
-            json.dump(store, f)
+        if MONGODB_URI and not mongo_fallback_enabled():
+            raise HTTPException(status_code=503, detail=mongo_store_unavailable_detail())
+        _save_local_store(store)
         return
-    collection = MONGO_CLIENT[MONGODB_DB][MONGODB_COLLECTION]
-    collection.replace_one({"_id": "clarifi_store"}, {"_id": "clarifi_store", **store}, upsert=True)
+    try:
+        collection = MONGO_CLIENT[MONGODB_DB][MONGODB_COLLECTION]
+        collection.replace_one({"_id": "clarifi_store"}, {"_id": "clarifi_store", **store}, upsert=True)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        MONGO_CONNECT_ERROR = str(exc)
+        try:
+            MONGO_CLIENT.close()
+        except Exception:
+            pass
+        MONGO_CLIENT = None
+        if MONGODB_URI and not mongo_fallback_enabled():
+            raise HTTPException(status_code=503, detail=mongo_store_unavailable_detail()) from exc
+        _save_local_store(store)
 
 
 def hash_password(password: str) -> str:
@@ -359,14 +447,36 @@ def _model_training_meta() -> dict[str, Any]:
 
 def _database_status() -> dict[str, Any]:
     if not MONGODB_URI or MongoClient is None:
-        return {"mode": "local-json", "connected": True}
+        return {"mode": "local-json", "connected": True, "fallbackLocal": True}
     if MONGO_CLIENT is None:
-        return {"mode": "mongodb", "connected": False, "error": "client not initialized"}
+        error = MONGO_CONNECT_ERROR or "client not initialized"
+        mode = "local-json" if mongo_fallback_enabled() else "mongodb"
+        return {
+            "mode": mode,
+            "connected": False,
+            "error": error,
+            "fallbackLocal": mongo_fallback_enabled(),
+            "storageTarget": "mongodb" if not mongo_fallback_enabled() else "local-json",
+        }
     try:
         MONGO_CLIENT.admin.command("ping")
-        return {"mode": "mongodb", "connected": True, "database": MONGODB_DB}
+        return {
+            "mode": "mongodb",
+            "connected": True,
+            "database": MONGODB_DB,
+            "collection": MONGODB_COLLECTION,
+            "fallbackLocal": False,
+            "storageTarget": "mongodb",
+        }
     except Exception as exc:
-        return {"mode": "mongodb", "connected": False, "error": str(exc)}
+        mode = "local-json" if mongo_fallback_enabled() else "mongodb"
+        return {
+            "mode": mode,
+            "connected": False,
+            "error": str(exc),
+            "fallbackLocal": mongo_fallback_enabled(),
+            "storageTarget": "mongodb" if not mongo_fallback_enabled() else "local-json",
+        }
 
 
 def summarize_transactions(transactions: list[dict[str, Any]]) -> dict[str, Any]:
@@ -870,7 +980,43 @@ def hmda() -> Any:
 
 @app.get("/api/model")
 def model_report() -> Any:
-    return read_json_or_404(PUBLIC_DATA / "model_report.json", "Model report")
+    """
+    Return dashboard model report.
+
+    Note: some notebook exports update `model_report.json` without the detailed
+    `calibration` array that the React `CalibrationChart` expects.
+    In that case we inject calibration bins from the SHAP report artifact.
+    """
+    report = read_json_or_404(PUBLIC_DATA / "model_report.json", "Model report")
+
+    # Frontend `CalibrationChart` expects: report.calibration: [{bin, predictedRate, actualRate, ...}]
+    cal = report.get("calibration")
+    if not isinstance(cal, list) or not cal:
+        shap_report_path = PUBLIC_DATA / "model_outputs" / "hmda_2025_xgboost_shap_report.json"
+        if shap_report_path.exists():
+            shap_report = read_json(shap_report_path)
+            shap_cal = shap_report.get("calibration")
+            if isinstance(shap_cal, list) and shap_cal:
+                injected: list[dict[str, Any]] = []
+                for row in shap_cal:
+                    if not isinstance(row, dict):
+                        continue
+                    predicted = row.get("predictedRate", row.get("predicted_rate"))
+                    actual = row.get("actualRate", row.get("actual_rate"))
+                    raw_predicted = row.get("rawPredictedRate", row.get("raw_predicted_rate"))
+                    injected.append(
+                        {
+                            "bin": row.get("bin", ""),
+                            "applications": row.get("applications", row.get("n", 0)),
+                            "predictedRate": float(predicted) if predicted is not None else 0.0,
+                            "actualRate": float(actual) if actual is not None else 0.0,
+                            "rawPredictedRate": float(raw_predicted) if raw_predicted is not None else None,
+                        }
+                    )
+                if injected:
+                    report["calibration"] = injected
+
+    return report
 
 
 @app.post("/api/mortgage/score")

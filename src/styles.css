@@ -402,7 +402,7 @@ h2 {
 
 .market-select {
   min-height: 44px;
-  border: 1px solid var(--line);
+  border: 1px dotted var(--line);
   border-radius: 8px;
   padding: 0 12px;
   color: var(--ink);
