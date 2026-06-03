@@ -1,203 +1,216 @@
 # ClariFi
 
-ClariFi is an AI-guided personal finance and mortgage readiness analytics system for U.S. households. It helps users understand how income, savings, expenses, and debt translate into financial resilience and home-buying readiness, then compares that profile against BLS-style household spending benchmarks and HMDA-style mortgage applicant patterns.
+ClariFi is an AI-guided personal finance and mortgage readiness visual analytics system. It combines 10 interactive D3 visualizations with a calibrated XGBoost model trained on ~58,000 California HMDA mortgage applications, BLS Consumer Expenditure peer benchmarks, and LLM-powered explanations to help users understand their mortgage readiness before applying.
 
-## Authentication
+## Setup Instructions
 
-ClariFi supports optional user accounts. Without logging in, the app runs in demo mode under a shared "Demo Household" profile. Registering or logging in gives each user their own persisted transactions, scenarios, and agent messages.
+### Prerequisites
 
-### Sign up
+- **Python 3.11+** (for the backend)
+- **Node.js 18+** and **npm** (for the frontend)
+- **Git** (to clone the repository)
 
-1. Click the sign-in icon in the bottom-left profile strip, or the **Sign in / Register** button at the bottom of the dashboard.
-2. Switch to the **Create account** tab, enter an email, name, and password (min 6 characters), and submit.
-3. The app stores the returned JWT in `localStorage` under the key `clarifi_token` and immediately shows your name in the sidebar.
+### Backend Setup
 
-### Sign in
+**1. Navigate to the server folder**
 
-1. Open the same modal and use the **Sign in** tab.
-2. Enter your email and password. On success the token is stored and your data loads automatically.
+```
+cd server
+```
 
-### Sign out
+**2. Create and activate a Python virtual environment**
 
-Click the sign-out icon next to your name in the sidebar profile strip, or the **Sign out** button at the bottom of the dashboard. This removes the token from `localStorage` and returns to demo mode.
+```
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-### Where tokens are stored
+**3. Install required Python packages**
 
-Tokens are stored in `localStorage` (`clarifi_token`). For production deployments prefer `httpOnly` secure cookies and add rate limiting, password reset, and email verification.
+```
+pip install -r requirements.txt
+```
 
-### API endpoints
+**4. Configure environment variables**
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/register` | Create account → returns `{ token, user }` |
-| POST | `/api/auth/login` | Sign in → returns `{ token, user }` |
-| GET | `/api/me` | Returns current user (requires `Authorization: Bearer <token>`) |
+Copy the example `.env` file in the project root and fill in your keys:
 
-## Current Prototype
+```
+cp ../.env.example ../.env
+```
 
-The current version is a full-stack visual analytics prototype with:
+Edit `../.env` with your values:
 
-- React + TypeScript + Vite frontend
-- D3 cashflow, HMDA scatter, benchmark, and calibration charts
-- FastAPI backend for auth, profile, transactions, benchmarks, HMDA, model metadata, scenarios, and agent explanations
-- JSON-backed local demo store with a MongoDB-ready API shape
-- Calibrated HMDA XGBoost model report from the executed notebook
-- BLS-style peer benchmark comparison
-- Mortgage readiness score
-- What-if simulator
-- Budget mixer and cashflow waterfall
-- Linked borrower comparison scatterplot
-- County-level affordability heatmap
-- Model explanation panel
+```
+OPENROUTER_API_KEY=your_openrouter_key_here   # Required for AI explanations
+MONGODB_URI=                                    # Optional: leave blank to use local JSON store
+```
 
-## How ClariFi Differs
+If you do not have an OpenRouter API key, the app will still work — it falls back to rule-based template explanations.
 
-ClariFi adapts AI finance analyzer projects to the U.S. personal finance market. Unlike generic CSV analyzers or chatbot-first finance assistants, ClariFi combines user transaction analysis with BLS Consumer Expenditure Survey benchmarks, ML-driven insight detection, and linked visual dashboards.
+**5. (Optional) Set up MongoDB**
 
-The AI agent does not simply give advice. It guides visual exploration by highlighting anomalies, peer comparisons, forecasts, and scenario changes.
+By default, ClariFi stores user data in a local JSON file (`client/public/data/local_store.json`). If you want to use MongoDB Atlas instead:
 
-## Agent Architecture
+- Create a free cluster at [MongoDB Atlas](https://cloud.mongodb.com/)
+- Add your IP to Network Access
+- Set `MONGODB_URI` in `.env` to your connection string
 
-- Profile Agent: reads user profile, goals, household type, and region.
-- Data Agent: cleans transaction data and maps categories to BLS-style expense groups.
-- Insight Agent: detects anomalies, spending shifts, recurring expenses, and forecast risk.
-- Benchmark Agent: compares the user to similar U.S. households using BLS Consumer Expenditure Survey data.
-- Explainer Agent: answers questions and highlights the relevant dashboard views.
+**6. Verify the XGBoost model file is present**
 
-This makes ClariFi feel similar to AI finance analyzer examples, but stronger for a visual analytics course because the agents are connected to data cleaning, benchmarks, ML insights, and interactive dashboard guidance.
+The pre-trained model should already be included at:
 
-## Core Datasets
+```
+client/public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib
+```
 
-### BLS Consumer Expenditure Survey
+If this file is missing, the app will still run but will show "Model unavailable" instead of real XGBoost predictions. You can regenerate it by running the training notebook in `notebooks/`.
 
-Purpose: personal finance benchmarking. Use it to compare a user's spending to similar U.S. households.
+**7. Start the FastAPI server**
 
-Example comparisons:
+```
+uvicorn main:app --host 127.0.0.1 --port 8001
+```
 
-- Food spending vs. households in the same income range
-- Housing cost share vs. regional average
-- Transportation spending vs. peer group
-- Savings gap compared to household benchmarks
+The API will be available at: http://127.0.0.1:8001
 
-### HMDA Mortgage Data
+API documentation available at: http://127.0.0.1:8001/docs
 
-Purpose: mortgage readiness and approval-pattern comparison. Use it to compare the user to real mortgage applicants.
+### Frontend Setup
 
-Example comparisons:
+**1. Open a new terminal and navigate to the client folder**
 
-- Income vs. approved borrowers
-- Loan amount vs. county patterns
-- Approval likelihood by county/MSA
-- DTI and loan-to-value style risk factors
+```
+cd client
+```
 
-Run it locally:
+**2. Install required Node.js packages**
 
-```bash
+```
 npm install
-python3 -m pip install -r api/requirements.txt
-npm run dev:api
+```
+
+**3. Start the React development server**
+
+```
 npm run dev
 ```
 
-Then open:
+**4. Open the app in your browser**
 
-```text
-http://127.0.0.1:5173
+Visit: http://127.0.0.1:5173
+
+The frontend proxies all `/api/*` requests to the backend server on port 8001.
+
+## Project Structure
+
 ```
-
-## Backend API
-
-The main backend is now FastAPI:
-
-- `GET /api/health` checks backend status
-- `POST /api/auth/register` creates a user
-- `POST /api/auth/login` returns a bearer token
-- `GET /api/me` returns the active user
-- `GET /api/profile` and `PUT /api/profile` read/update the household profile
-- `POST /api/transactions/upload` imports a transaction CSV
-- `GET /api/transactions` returns transactions and summary stats
-- `GET /api/finance/summary` returns spending/cashflow aggregates
-- `GET /api/benchmarks` returns BLS-style peer benchmark data
-- `GET /api/hmda` returns processed HMDA-style comparison data
-- `GET /api/model` returns calibrated model metadata
-- `POST /api/mortgage/score` scores a mortgage readiness scenario
-- `POST /api/scenarios` saves a scenario result
-- `GET /api/scenarios` lists saved scenario results
-- `POST /api/agent/explain` returns an explanation for the current scenario
-
-The older dependency-free `server.mjs` is still kept as `npm run legacy:server`, but the course-ready stack should use FastAPI + Vite.
-
-For the next MongoDB + ML service buildout, see [Backend + ML Integration Plan](docs/backend_ml_integration.md).
-
-## Data + ML Layer
-
-- The executed notebook is `notebooks/hmda_2025_xgboost_shap.ipynb`
-- The app consumes `public/data/model_report.json`
-- Current calibrated XGBoost AUC is about `0.804`
-- Current calibrated Brier score is about `0.063`
-- SHAP-style feature drivers are shown in the model panel
-- Aggregated county/metro approval and affordability metrics
-
-For live model inference, copy these Colab artifacts into `public/data/model_outputs/`:
-
-- `hmda_2025_xgboost_calibrated_pipeline.joblib` (required)
-- `scenario_inference_config.json` (required for slider scoring)
-- `public/data/model_report.json` (calibration chart in UI)
-
-## Data Pipeline
-
-The current prototype does not use a real HMDA year yet. It uses `data/sample_hmda_lar.csv`, a 48-row HMDA-shaped sample with loan application fields modeled after the CFPB/FFIEC modified LAR structure, so we can build and test the visual analytics workflow first.
-
-The current frontend loads `public/data/hmda_processed.json`. That file is generated by:
-
-```bash
-npm run build:data
+ClariFi/
+├── client/                          # React + TypeScript + Vite frontend
+│   ├── public/
+│   │   ├── data/                    # Static JSON datasets
+│   │   │   ├── bls_benchmarks.json  # BLS peer spending benchmarks
+│   │   │   ├── hmda_processed.json  # Processed HMDA scatter/county data
+│   │   │   ├── model_report.json    # XGBoost training metrics
+│   │   │   ├── local_store.json     # Local user/session storage
+│   │   │   └── model_outputs/       # XGBoost .joblib model + SHAP artifacts
+│   │   └── logo.png
+│   ├── src/
+│   │   ├── components/              # 10 D3 chart components (one per file)
+│   │   │   ├── CashflowChart.tsx    # Monthly cashflow waterfall
+│   │   │   ├── ExpenseDonut.tsx     # Budget donut with hover/click
+│   │   │   ├── HmdaScatter.tsx      # Income vs. loan scatter plot
+│   │   │   ├── ChoroplethMap.tsx    # California county approval map
+│   │   │   ├── IncomeHistogram.tsx  # Income distribution histogram
+│   │   │   ├── RiskSurface.tsx      # DTI × down-payment heatmap
+│   │   │   ├── BenchmarkBars.tsx    # User vs. BLS peer bars
+│   │   │   ├── CalibrationChart.tsx # Model calibration curve
+│   │   │   ├── ShapWaterfallChart.tsx # Feature impact waterfall
+│   │   │   ├── CountyCalibrationChart.tsx # Per-county fairness audit
+│   │   │   ├── chart-utils.ts       # Shared D3 utilities
+│   │   │   └── index.ts             # Barrel export
+│   │   ├── ReactApp.tsx             # Main dashboard with linked views
+│   │   ├── Landing.tsx              # Landing page
+│   │   ├── Login.tsx                # Auth modal (login/register)
+│   │   ├── Onboarding.tsx           # CSV upload onboarding flow
+│   │   ├── api.ts                   # API client (fetch wrapper)
+│   │   ├── types.ts                 # TypeScript type definitions
+│   │   ├── styles.css               # All application styles
+│   │   ├── main.tsx                 # React entry point
+│   │   └── vite-env.d.ts            # Vite type declarations
+│   ├── package.json                 # npm dependencies and scripts
+│   ├── vite.config.ts               # Vite config with API proxy
+│   ├── tsconfig.json                # TypeScript config
+│   ├── tsconfig.app.json
+│   └── tsconfig.node.json
+├── server/                          # FastAPI + Python backend
+│   ├── data/                        # Raw HMDA CSV and sample transactions
+│   │   ├── hmda_2025_sample_60000.csv
+│   │   └── user_upload_pack/        # Sample CSVs for different personas
+│   ├── main.py                      # API routes, ML scoring, LLM chain
+│   ├── data_scheme.py               # Pydantic request/response models
+│   ├── import_data.py               # Data loading, CSV parsing, storage
+│   ├── scenario_inference.py        # Feature engineering for XGBoost
+│   └── requirements.txt             # Python dependencies
+├── notebooks/                       # Jupyter notebook for model training
+│   └── hmda_2025_xgboost_shap.ipynb # XGBoost training + SHAP analysis
+├── scripts/                         # Data processing and utility scripts
+├── docs/                            # Presentations and documentation
+├── tests/                           # API tests (pytest)
+├── .env.example                     # Environment variable template
+├── .gitignore
+└── README.md
 ```
-
-The processor reads HMDA-style loan application fields from `data/sample_hmda_lar.csv`, computes county approval/readiness summaries, and produces the borrower points used in the comparison scatterplot.
-
-For the course dataset, the planned next swap is one annual CFPB/FFIEC modified LAR extract, likely 2023 or 2024 for California counties first, then more years only if the interaction still performs well.
-
-## Model Pipeline
-
-The course model pipeline is the HMDA notebook:
-
-```bash
-jupyter notebook notebooks/hmda_2025_xgboost_shap.ipynb
-```
-
-It removes leakage-prone fields such as `interest_rate`, excludes sensitive demographic fields from scoring, trains/tunes XGBoost, calibrates probabilities, generates SHAP summaries, and exports dashboard-ready artifacts:
-
-- `public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib`
-- `public/data/model_outputs/scenario_inference_config.json` (API feature alignment)
-- `public/data/model_report.json`
-
-After copying artifacts from Colab, restart the API (`npm run dev:api`). Optionally rebuild the inference config from the HMDA CSV with `npm run export:inference-config`.
 
 ## System Architecture
 
 ```
-┌─────────────────────────┐    /api/*  (HTTP/JSON)    ┌─────────────────────────┐    joblib / HTTP    ┌─────────────────────────┐
-│       FRONTEND          │ ─────────────────────────► │        BACKEND          │ ──────────────────► │       ML / AI           │
-│                         │                            │                         │                      │                         │
-│  React · TypeScript     │                            │  FastAPI · Python       │                      │  XGBoost + LLM          │
-│  D3.js · Vite 6         │                            │  Uvicorn · port 8001    │                      │  300 trees · depth 5    │
-│  8 interactive charts   │                            │  13 REST endpoints      │                      │  Isotonic calibration   │
-│  Dark / light theme     │ ◄─────────── JSON ──────── │  JWT + JSON store       │ ◄─ scores+explain ── │  Ollama mistral (local) │
-│  JWT auth flow          │                            │  XGBoost inference      │                      │  SHAP approximations    │
-└─────────────────────────┘                            └─────────────────────────┘                      └─────────────────────────┘
-     8 charts · 4 interactive                             13 endpoints · <50 ms                           AUC 0.806 · Brier 0.063
+┌─────────────────────────┐   /api/* (HTTP/JSON)   ┌─────────────────────────┐   joblib / HTTP   ┌─────────────────────────┐
+│       FRONTEND          │ ──────────────────────► │        BACKEND          │ ────────────────► │       ML / AI           │
+│                         │                         │                         │                   │                         │
+│  React 19 · TypeScript  │                         │  FastAPI · Python       │                   │  XGBoost + LLM          │
+│  D3.js v7 · Vite 6      │                         │  Uvicorn · port 8001    │                   │  300 trees · depth 5    │
+│  10 interactive charts  │                         │  15 REST endpoints      │                   │  Isotonic calibration   │
+│  Dark / light theme     │ ◄──────── JSON ──────── │  JWT + JSON/MongoDB     │ ◄─ scores+text ── │  OpenRouter / Ollama    │
+│  JWT auth flow          │                         │  XGBoost inference      │                   │  SHAP approximations    │
+└─────────────────────────┘                         └─────────────────────────┘                   └─────────────────────────┘
+     10 charts · linked views                          15 endpoints · <50 ms                        AUC 0.804 · Brier 0.063
 ```
 
-## Interactive Charts
+## Visualization Components
 
-| Chart | Description | Interaction |
+| Chart | Type | Linked Interactions |
 |---|---|---|
-| `CashflowChart` | Waterfall: income → expenses → surplus | Hover pop-out with glow/dim |
-| `IncomeHistogram` | Income vs. HMDA cohort distribution | Crosshair + income pill label |
-| `ChoroplethMap` | California county readiness map | Smooth gradient legend, county tooltips |
-| `RiskSurface` | DTI × down payment approval heatmap | Pulsing "You" marker |
-| `BenchmarkBars` | Income vs. BLS occupation benchmarks | Static |
-| `ExpenseDonut` | Spending breakdown | Static |
-| `HmdaScatter` | Loan amount vs. income (HMDA) | Static |
-| `CalibrationChart` | Model predicted vs. actual approval rate | Static |
+| CashflowChart | Waterfall | Hover pop-out with glow/dim animation |
+| ExpenseDonut | Donut | Hover/click expand slice, bidirectional with budget sliders |
+| IncomeHistogram | Stacked histogram | Crosshair brush → highlights matching scatter points |
+| ChoroplethMap | Choropleth map | Click county → filters scatter + histogram; highlights from scatter hover |
+| RiskSurface | Heatmap | Click cell → applies DTI/DP to scenario sliders; XGBoost model predictions |
+| HmdaScatter | Scatter plot | Hover point → highlights county on map; responds to histogram brush |
+| BenchmarkBars | Horizontal bar | User spending vs. BLS peer comparison |
+| CalibrationChart | Line chart | Model predicted vs. actual approval rates |
+| ShapWaterfallChart | Horizontal bar | Per-feature impact from model perturbation |
+| CountyCalibrationChart | Paired bar | Per-county fairness audit |
+
+## Linked View Interactions
+
+- **Histogram → Scatter**: Brushing an income band highlights matching points in the scatter plot
+- **Scatter → Map**: Hovering a scatter point highlights its county on the choropleth
+- **Map → Scatter + Histogram**: Clicking a county filters both charts to that county's data
+- **Risk Surface → Sliders**: Clicking a heatmap cell sets debt/savings to match the selected DTI/DP
+- **Agent → Charts**: AI explanations annotate specific chart elements (e.g., dim denied points, highlight risk surface position)
+- **Sliders → All views**: Every chart reacts when scenario parameters change (debounced 250ms)
+
+## Core Datasets
+
+- **HMDA Modified LAR (2025 California)**: ~58,000 mortgage applications used for scatter, histogram, choropleth, and model training
+- **BLS Consumer Expenditure Survey**: Peer spending benchmarks by income band and region
+- **XGBoost model**: Calibrated approval probability trained on HMDA data (AUC 0.804, Brier 0.063, 300 trees, isotonic calibration)
+
+## Known Issues and Limitations
+
+- The XGBoost model is trained on California HMDA data only — predictions may not generalize to other states
+- The readiness score is for educational purposes only and is not a credit decision or financial advice
+- Historical HMDA data may reflect systemic lending biases
+- If OpenRouter API keys are not set, the AI explainer falls back to rule-based templates
+- The large bundle size (~1.2 MB) is due to D3 + us-atlas topology data; code splitting could reduce initial load

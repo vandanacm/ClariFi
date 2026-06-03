@@ -171,3 +171,17 @@ export type FinanceSummary = {
   netCashflowObserved: number;
   categoryTotals: Record<string, number>;
 };
+
+export type RiskGridCell = {
+  dti: number;
+  dp: number;
+  approval: number;
+};
+
+export type AgentAnnotation = {
+  section: string;
+  scatterHighlightApproved?: boolean;
+  riskSurfaceDti?: number;
+  riskSurfaceDp?: number;
+  chartMessage?: string;
+};

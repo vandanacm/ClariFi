@@ -3145,3 +3145,19 @@ input:checked + .theme-toggle-slider:before {
   background: var(--soft);
 }
 
+.agent-chart-annotation {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--soft);
+  border-left: 3px solid var(--you);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.82rem;
+  color: var(--ink);
+  animation: annotationPulse 2s ease-in-out infinite;
+}
+
+@keyframes annotationPulse {
+  0%, 100% { border-left-color: var(--you); }
+  50% { border-left-color: var(--teal); }
+}
+
