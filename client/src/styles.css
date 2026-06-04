@@ -3380,6 +3380,20 @@ input:checked + .theme-toggle-slider:before {
   margin-bottom: 16px;
 }
 
+.save-scenario-wrap {
+  margin-top: 12px;
+}
+
+.save-scenario-hint {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.save-scenario-hint strong {
+  color: var(--text);
+}
+
 .compare-table-wrap {
   overflow-x: auto;
 }

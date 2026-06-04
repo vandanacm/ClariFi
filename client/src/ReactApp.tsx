@@ -143,6 +143,15 @@ function App() {
   const [hoveredExpenseKey, setHoveredExpenseKey] = useState<string | null>(null);
   const [savedScenarios, setSavedScenarios] = useState<Array<{ id: string; createdAt: string; input: ScenarioInput; result: ScoreResult }>>([]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [lastSavedMarket, setLastSavedMarket] = useState<string | null>(null);
+
+  const scenariosForCompare = useMemo(
+    () =>
+      [...savedScenarios]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 4),
+    [savedScenarios],
+  );
   const [agentAnnotation, setAgentAnnotation] = useState<AgentAnnotation | null>(null);
 
   useEffect(() => {
@@ -287,9 +296,18 @@ function App() {
 
   async function saveCurrentScenario() {
     if (saveStatus === "saving") return;
+    const marketLabel = scenario.market;
     setSaveStatus("saving");
-    try { await api.saveScenario(scenario); await loadSavedScenarios(); setSaveStatus("saved"); setTimeout(() => setSaveStatus("idle"), 2000); }
-    catch { setSaveStatus("idle"); }
+    try {
+      await api.saveScenario(scenario);
+      await loadSavedScenarios();
+      setSaveStatus("saved");
+      setLastSavedMarket(marketLabel);
+      setTimeout(() => { setSaveStatus("idle"); setLastSavedMarket(null); }, 2500);
+    } catch {
+      setSaveStatus("idle");
+      setLastSavedMarket(null);
+    }
   }
 
   const nav = [
@@ -508,9 +526,20 @@ function App() {
               ))}
             </div>
             {authUser && (
-              <button className={`save-scenario-btn${saveStatus === "saved" ? " saved" : ""}`} type="button" onClick={saveCurrentScenario} disabled={saveStatus === "saving"}>
-                {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "✓ Saved" : "Save Scenario"}
-              </button>
+              <div className="save-scenario-wrap">
+                <button className={`save-scenario-btn${saveStatus === "saved" ? " saved" : ""}`} type="button" onClick={saveCurrentScenario} disabled={saveStatus === "saving"}>
+                  {saveStatus === "saving"
+                    ? "Saving…"
+                    : saveStatus === "saved" && lastSavedMarket
+                      ? `✓ Saved · ${lastSavedMarket}`
+                      : "Save Scenario"}
+                </button>
+                {saveStatus === "idle" && (
+                  <p className="save-scenario-hint">
+                    Saves current target market: <strong>{scenario.market}</strong> (use header dropdown before saving)
+                  </p>
+                )}
+              </div>
             )}
           </article>
         </section>
@@ -669,13 +698,32 @@ function App() {
           </article>
         </section>
 
-        {savedScenarios.length > 0 && (
+        {scenariosForCompare.length > 0 && (
           <section className="compare-section app-section" aria-label="Saved scenario comparison">
-            <div className="compare-header"><div><p className="panel-kicker">Scenario history</p><h2>Compare saved profiles</h2></div></div>
+            <div className="compare-header">
+              <div>
+                <p className="panel-kicker">Scenario history</p>
+                <h2>Compare saved profiles</h2>
+                <p className="panel-note">
+                  Showing {scenariosForCompare.length} most recent save{scenariosForCompare.length === 1 ? "" : "s"}
+                  {savedScenarios.length > scenariosForCompare.length ? ` of ${savedScenarios.length} total` : ""}.
+                </p>
+              </div>
+            </div>
             <div className="compare-table-wrap">
               <table className="compare-table">
                 <thead><tr><th>Metric</th>
-                  {savedScenarios.slice(0, 4).map(s => (<th key={s.id}>{s.input.market}<br /><small>{new Date(s.createdAt).toLocaleDateString()}</small></th>))}
+                  {scenariosForCompare.map(s => (
+                    <th key={s.id}>
+                      {s.input.market}
+                      <br />
+                      <small>
+                        {new Date(s.createdAt).toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                        {" · "}
+                        {money.format(s.input.price)}
+                      </small>
+                    </th>
+                  ))}
                 </tr></thead>
                 <tbody>
                   {[
@@ -686,10 +734,9 @@ function App() {
                     { label: "Down payment", fmt: (s: typeof savedScenarios[0]) => percent.format(s.result.downPaymentRate), best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.result.downPaymentRate > b.result.downPaymentRate ? a : b).id },
                     { label: "Monthly surplus", fmt: (s: typeof savedScenarios[0]) => money.format(s.result.monthlySurplus), best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.result.monthlySurplus > b.result.monthlySurplus ? a : b).id },
                   ].map(row => {
-                    const slice = savedScenarios.slice(0, 4);
-                    const bestId = row.best(slice);
+                    const bestId = row.best(scenariosForCompare);
                     return (<tr key={row.label}><td className="compare-metric-label">{row.label}</td>
-                      {slice.map(s => (<td key={s.id} className={s.id === bestId ? "compare-best" : ""}>{row.fmt(s)}</td>))}</tr>);
+                      {scenariosForCompare.map(s => (<td key={s.id} className={s.id === bestId ? "compare-best" : ""}>{row.fmt(s)}</td>))}</tr>);
                   })}
                 </tbody>
               </table>

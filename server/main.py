@@ -936,7 +936,9 @@ def save_scenario(payload: ScenarioInput, user: dict[str, Any] = Depends(user_fr
 @app.get("/api/scenarios")
 def list_scenarios(user: dict[str, Any] = Depends(user_from_authorization)) -> dict[str, Any]:
     store = load_store()
-    return {"scenarios": store["scenarios"].get(user["id"], [])[-20:]}
+    rows = store["scenarios"].get(user["id"], [])
+    rows = sorted(rows, key=lambda s: s.get("createdAt", ""), reverse=True)
+    return {"scenarios": rows[:20]}
 
 
 @app.post("/api/agent/explain")
