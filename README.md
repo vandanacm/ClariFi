@@ -112,10 +112,14 @@ To test with different personas, use the pre-configured test users below. All sh
 
 **Steps to test a persona:**
 
-1. Register using the email and password from the table above 
+1. Register using the email and password from the table above
 2. After sign-in, upload the matching CSV from `server/data/user_upload_pack/`
 3. The sliders will auto-fill from the uploaded transaction data
 4. Explore the dashboard — each persona produces a different readiness score and risk profile
+
+**Testing the re-upload flow:**
+
+To test uploading a new CSV for an already-registered user, use `server/data/user_upload_pack/reupload_test_transactions.csv`. Log in as any existing account, click **Upload CSV** in the top-right header, and select this file. The dashboard metrics will update immediately without a page refresh (~$9,200/mo income, $870 debt, $600/mo savings, 2 months of data).
 
 ## Project Structure
 
