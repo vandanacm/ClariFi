@@ -712,7 +712,7 @@ function App() {
         </section>
 
         <footer className="dashboard-footer" style={{ padding: '24px 0 32px 0', textAlign: 'center', borderTop: '1px solid var(--line)', marginTop: '40px', color: 'var(--muted)', fontSize: '0.85rem', opacity: 0.8 }}>
-          <p>© 2026 ClariFi. All rights reserved. &bull; Created by Lalitha, <a href="https://pranavmanimaran.vercel.app" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Pranav</a>, and <a href="https://vandanacm.github.io/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Vandana</a></p>
+          <p>© 2026 ClariFi. All rights reserved. &bull; Created by <a href="https://lalitha-dasu.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Lalitha</a>, <a href="https://pranavmanimaran.vercel.app" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Pranav</a>, and <a href="https://vandanacm.github.io/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Vandana</a></p>
         </footer>
 
         {/* ── Agent float panel ── */}

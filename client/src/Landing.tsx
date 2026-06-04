@@ -134,7 +134,7 @@ export function Landing({ onSignIn, onDemo, theme, toggleTheme }: LandingProps) 
       <footer className="landing-footer">
         <p>For educational purposes only — not a lending decision or financial advice. California HMDA 2025 data.</p>
         <p className="footer-credits" style={{ marginTop: '8px', opacity: 0.8, fontSize: '0.85rem' }}>
-          © 2026 ClariFi. All rights reserved. &bull; Created by Lalitha, <a href="https://pranavmanimaran.vercel.app" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Pranav</a>, and <a href="https://vandanacm.github.io/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Vandana</a>
+          © 2026 ClariFi. All rights reserved. &bull; Created by <a href="https://lalitha-dasu.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Lalitha</a>, <a href="https://pranavmanimaran.vercel.app" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Pranav</a>, and <a href="https://vandanacm.github.io/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>Vandana</a>
         </p>
         <button className="landing-demo-link" type="button" onClick={onDemo}>
           Skip — explore as demo household →
