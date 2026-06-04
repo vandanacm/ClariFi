@@ -19,13 +19,13 @@ https://ffiec.cfpb.gov/data-publication/modified-lar
 For class/demo speed, use the sampled model-ready file:
 
 ```text
-data/hmda_2025_ca_model_ready_60000.csv
+server/data/hmda_2025_ca_model_ready_60000.csv
 ```
 
 For the full run, place the national HMDA file at:
 
 ```text
-data/hmda_2025_modified_lar.csv
+server/data/hmda_2025_modified_lar.csv
 ```
 
 or update `DATA_PATH` in the notebook / use the Colab upload cell.

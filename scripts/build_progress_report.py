@@ -295,7 +295,7 @@ ml_items = [
     ("Features: ", "21 numeric (DTI, LTV, log-income, county relative metrics, flags) + 2 categorical (county code, loan type)"),
     ("Test AUC: ", "0.7191 (calibrated) / 0.8055 (raw XGBoost)"),
     ("Brier score: ", "0.1844 (calibrated)"),
-    ("Artifact: ", "public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib (gitignored)"),
+    ("Artifact: ", "client/public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib"),
 ]
 for bold, rest in ml_items:
     add_bullet(doc, rest, bold_prefix=bold)
@@ -402,7 +402,7 @@ r = file_map.add_run(
     "│   ├── hmda_processed.json  Processed HMDA California loan data\n"
     "│   ├── bls_benchmarks.json  BLS occupation income benchmarks\n"
     "│   ├── model_report.json    Model metrics, calibration, feature importance\n"
-    "│   └── model_outputs/       Gitignored — contains trained .joblib model\n"
+    "│   └── model_outputs/       Trained .joblib + SHAP JSON\n"
     "├── scripts/\n"
     "│   ├── train_xgboost_model.py    Generate synthetic data + train XGBoost\n"
     "│   └── process_hmda_sample.mjs  Preprocess raw HMDA CSV\n"

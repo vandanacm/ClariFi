@@ -206,7 +206,7 @@ The model also uses derived **DTI** (debt-to-income), **LTV** (loan-to-value), l
 
 - [ ] Edit title, division-of-labor table, and thank-you slide with real names and email
 - [ ] `npm run build:presentation` then `npm run build:video-presentation` (refresh charts + decks)
-- [ ] Register Maya + Sofia; upload CSVs from `data/user_upload_pack/`
+- [ ] Register Maya + Sofia; upload CSVs from `server/data/user_upload_pack/`
 - [ ] `npm run dev:full` — test demo path once
 - [ ] Screen recorder: 1920×1080, 30 fps
 - [ ] Practice full run with timer — target **8:40**
@@ -218,7 +218,7 @@ The model also uses derived **DTI** (debt-to-income), **LTV** (loan-to-value), l
 
 | File | Use |
 |------|-----|
-| `data/user_upload_pack/user_profiles_seed.csv` | Demo logins |
+| `server/data/user_upload_pack/user_profiles_seed.csv` | Demo logins |
 | `docs/presentation_assets/*.png` | Chart images |
 | `public/data/model_report.json` | Metrics source |
 | `scripts/check_mongo.py` | Mongo connectivity test |

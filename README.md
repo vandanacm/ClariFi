@@ -45,7 +45,7 @@ The `.env.example` in the project root already contains working defaults (MongoD
 cp ../.env.example ../.env
 ```
 
-The app connects to MongoDB Atlas by default (open to all IPs). If Atlas is unreachable, it automatically falls back to a local JSON file (`client/public/data/local_store.json`).
+The app connects to MongoDB Atlas by default (open to all IPs). If Atlas is unreachable, it falls back to `client/public/data/local_store.json` (created from `local_store.seed.json` on first run; gitignored once you use the app).
 
 If you want AI-powered explanations, add your OpenRouter API key in `.env`. Without it, the app still works using rule-based template explanations.
 
@@ -114,29 +114,33 @@ To test with different personas, use the pre-configured test users below. All sh
 
 1. Register using the email and password from the table above 
 2. After sign-in, upload the matching CSV from `server/data/user_upload_pack/`
-3. The sliders will auto-fill from the uploaded transaction data
+3. The sliders will auto-fill from the uploaded transaction data, you may also edit the sliders and check how the rates vary with what if scenarios and save each scenario. 
 4. Explore the dashboard — each persona produces a different readiness score and risk profile
 
 ## Project Structure
 
 ```
 ClariFi/
-├── client/                  # React 19 + TypeScript + Vite 6 frontend
-│   ├── public/data/         # HMDA/BLS JSON, model_report.json, model_outputs/
-│   ├── src/components/      # D3 chart components (one per file)
-│   ├── src/ReactApp.tsx     # Main dashboard with linked views
-│   ├── src/api.ts           # API client
-│   └── src/types.ts         # TypeScript type definitions
-├── server/                  # FastAPI + Python backend
-│   ├── data/                # HMDA CSV + sample transaction CSVs
-│   ├── main.py              # API routes, ML scoring, LLM chain
-│   ├── data_scheme.py       # Pydantic models
-│   ├── import_data.py       # Data loading and CSV parsing
-│   └── scenario_inference.py # Feature engineering for XGBoost
-├── notebooks/               # XGBoost training + SHAP analysis
-├── tests/                   # API tests (pytest)
-└── .env.example             # Environment variable template
+├── client/
+│   ├── public/data/              # Published runtime data (Vite /api static)
+│   │   ├── hmda_processed.json   # Choropleth, scatter, histogram
+│   │   ├── bls_benchmarks.json
+│   │   ├── model_report.json
+│   │   ├── model_outputs/        # XGBoost .joblib, SHAP JSON, scenario config
+│   │   ├── local_store.seed.json # Demo user seed (tracked)
+│   │   └── local_store.json      # Auth fallback (gitignored; auto-created)
+│   └── src/                      # React + D3 dashboard
+├── server/
+│   ├── data/                     # Pipeline inputs + demo CSV uploads
+│   │   ├── hmda_2025_sample_60000.csv
+│   │   └── user_upload_pack/
+│   ├── paths.py                  # Canonical paths (server + client data)
+│   └── main.py                   # FastAPI, ML scoring, LLM
+├── notebooks/                    # Train model → copy artifacts to public/data/
+└── .env.example
 ```
+
+See `server/data/README.md` for the server vs client data split.
 
 ## Dashboard layout (top → bottom)
 
