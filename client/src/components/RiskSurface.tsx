@@ -14,7 +14,6 @@ type RiskGridCell = { dti: number; dp: number; approval: number };
 
 const _dtiSteps = d3.range(0.15, 0.56, 0.05);
 const _dpSteps = d3.range(0.05, 0.31, 0.05);
-const _riskColor = d3.scaleSequential([0.2, 0.95], d3.interpolateRdYlGn);
 
 export function RiskSurface({ score, scenario, onCellClick, agentAnnotation }: Props) {
   const W = 480;
@@ -46,6 +45,15 @@ export function RiskSurface({ score, scenario, onCellClick, agentAnnotation }: P
       map.set(`${cell.dti.toFixed(2)}-${cell.dp.toFixed(2)}`, cell.approval);
     }
     return map;
+  }, [modelGrid]);
+
+  const colorScale = useMemo(() => {
+    const vals = modelGrid?.map((c) => c.approval) ?? [];
+    if (!vals.length) return d3.scaleSequential([0.2, 0.95], d3.interpolateRdYlGn);
+    const lo = Math.min(...vals);
+    const hi = Math.max(...vals);
+    const pad = Math.max((hi - lo) * 0.05, 0.02);
+    return d3.scaleSequential([lo - pad, hi + pad], d3.interpolateRdYlGn);
   }, [modelGrid]);
 
   const uCol = _dtiSteps.reduce(
@@ -95,7 +103,7 @@ export function RiskSurface({ score, scenario, onCellClick, agentAnnotation }: P
                 y={mg.top + row * cellH}
                 width={cellW - 1}
                 height={cellH - 1}
-                fill={_riskColor(approval)}
+                fill={colorScale(approval)}
                 rx={2}
                 stroke={isAnnotated ? "var(--you)" : isHovered ? "var(--ink)" : "none"}
                 strokeWidth={isAnnotated ? 3 : isHovered ? 2 : 0}

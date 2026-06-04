@@ -4,6 +4,7 @@ import type {
   HmdaModel,
   ModelReport,
   RiskGridCell,
+  RateSensitivityPoint,
   ScenarioInput,
   ScoreResult,
   AgentAnnotation,
@@ -105,6 +106,11 @@ export const api = {
     }),
   riskGrid: (scenario: ScenarioInput) =>
     request<RiskGridCell[]>("/api/risk-grid", {
+      method: "POST",
+      body: JSON.stringify(scenario),
+    }),
+  rateSensitivity: (scenario: ScenarioInput) =>
+    request<RateSensitivityPoint[]>("/api/rate-sensitivity", {
       method: "POST",
       body: JSON.stringify(scenario),
     }),

@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { AlertTriangle, BarChart3, Bot, Database, Home, Landmark, LogIn, LogOut, Moon, Navigation, Sun, Upload, UserPlus } from "lucide-react";
+import { BarChart3, Bot, Database, Home, Landmark, LogIn, LogOut, Moon, Navigation, Sun, Upload, UserPlus } from "lucide-react";
 import { api } from "./api";
 import { AuthModal } from "./Login";
 import { Landing } from "./Landing";
 import { Onboarding } from "./Onboarding";
 import {
   BenchmarkBars, CalibrationChart, CashflowChart, ChoroplethMap,
-  CountyCalibrationChart, ExpenseDonut, HmdaScatter, IncomeHistogram,
-  RiskSurface, ShapWaterfallChart,
+  CountyCalibrationChart, CounterfactualBar, DtiDecomposition, ExpenseDonut,
+  AffordablePriceBand, GlobalFeatureImportance, GuidelineGauges, HmdaPeerComparison,
+  HmdaScatter, IncomeHistogram, LoanProgramChecklist, ModelMetricsChart, MonthlyPaymentStack,
+  RateSensitivityChart, RiskSurface, SavingsTimeline, ShapWaterfallChart,
 } from "./components";
 import type {
   AgentAnnotation, BenchmarkModel, FinanceSummary,
@@ -216,6 +218,14 @@ function App() {
   function updateScenario<K extends keyof ScenarioInput>(key: K, value: ScenarioInput[K]) { setScenario(current => ({ ...current, [key]: value })); }
   function updateNumericScenario(key: "income" | "debt" | "savings" | "price", value: number) { setScenario(current => ({ ...current, [key]: value })); }
   function updateExpense(key: keyof ScenarioInput["expenses"], value: number) { setScenario(current => ({ ...current, expenses: { ...current.expenses, [key]: value } })); }
+  function updateHousingPayment(value: number) {
+    setScenario(current => {
+      const maxHousing = Math.round(current.price * 0.0062);
+      const clamped = Math.max(0, Math.min(maxHousing, value));
+      const newSavings = Math.round(current.price - clamped / 0.0062);
+      return { ...current, savings: Math.max(0, Math.min(current.price, newSavings)) };
+    });
+  }
 
   async function onAuthSuccess(user: AuthUser) {
     setAuthUser(user); setShowAuth(false); navigate("/dashboard"); loadSavedScenarios();
@@ -417,43 +427,50 @@ function App() {
           </div>
         </section>
 
-        {/* ── Finances ── */}
+        {/* ── Finances (donut + sliders first — drives linked views) ── */}
         <section className={`finance-strip app-section${agentHighlight === "finances" ? " section-highlighted" : ""}`} data-section="finances" aria-label="Personal finance controls">
-          <article className="finance-card cashflow-card">
-            <div className="panel-header">
-              <div>
-                <p className="panel-kicker">D3 cashflow lens</p><h2>Where monthly income goes</h2>
-                <p className="panel-note">Monthly waterfall from your scenario. Hover any bar for the exact amount.</p>
-              </div>
-              <span className={`status-pill ${score.monthlySurplus < 0 ? "danger" : ""}`}>{score.monthlySurplus >= 0 ? "Positive buffer" : "Over budget"}</span>
-            </div>
-            <CashflowChart scenario={scenario} score={score} />
-          </article>
           <article className="finance-card expense-card">
             <div className="panel-header">
-              <div><p className="panel-kicker">Budget mixer</p><h2>Tune flexible spending</h2>
-                <p className="panel-note">Donut shows flexible monthly outflow. Use sliders to run what-if budgets.</p></div>
+              <div><p className="panel-kicker">Budget mixer</p><h2>Tune your monthly budget</h2>
+                <p className="panel-note">Donut and sliders update cashflow, readiness metrics, and model score together.</p></div>
               <strong className={`surplus-value ${score.monthlySurplus < 0 ? "negative" : ""}`}>{money.format(score.monthlySurplus)}</strong>
             </div>
             <div className="budget-layout">
               <ExpenseDonut scenario={scenario} score={score} hoveredKey={hoveredExpenseKey} onHoverChange={setHoveredExpenseKey} />
               <div className="mini-slider-stack">
-                {(["food", "transport", "lifestyle", "investing"] as const).map(key => (
+                {([
+                  { key: "housing", label: "Housing", min: 0, max: Math.round(scenario.price * 0.0062), step: 50, value: score.monthlyHousing, onChange: updateHousingPayment },
+                  { key: "debt", label: "Debt", min: 0, max: 8000, step: 50, value: scenario.debt, onChange: (v: number) => updateNumericScenario("debt", v) },
+                  { key: "food", label: "Food", min: 0, max: 3000, step: 25, value: scenario.expenses.food, onChange: (v: number) => updateExpense("food", v) },
+                  { key: "transport", label: "Transport", min: 0, max: 3000, step: 25, value: scenario.expenses.transport, onChange: (v: number) => updateExpense("transport", v) },
+                  { key: "lifestyle", label: "Lifestyle", min: 0, max: 3000, step: 25, value: scenario.expenses.lifestyle, onChange: (v: number) => updateExpense("lifestyle", v) },
+                  { key: "investing", label: "Investing", min: 0, max: 5000, step: 25, value: scenario.expenses.investing, onChange: (v: number) => updateExpense("investing", v) },
+                ] as const).map(({ key, label, min, max, step, value, onChange }) => (
                   <div className={`mini-range-row${hoveredExpenseKey === key ? " row-highlighted" : ""}`} key={key}
                     onMouseEnter={() => setHoveredExpenseKey(key)} onMouseLeave={() => setHoveredExpenseKey(null)}>
                     <div className="range-header">
-                      <span className="range-label-text" style={{ textTransform: "capitalize" }}>{key}</span>
+                      <span className="range-label-text">{label}</span>
                       <label className="value-input-wrap"><span className="value-currency">$</span>
-                        <input className="value-input" type="number" defaultValue={scenario.expenses[key]} key={`exp-${key}-${scenario.expenses[key]}`} min={0}
-                          onBlur={e => { const v = Number(e.target.value); if (!isNaN(v) && v >= 0) updateExpense(key, v); }}
+                        <input className="value-input" type="number" defaultValue={value} key={`budget-${key}-${value}`} min={min} max={max}
+                          onBlur={e => { const v = Number(e.target.value); if (!isNaN(v) && v >= min) onChange(Math.min(max, v)); }}
                           onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} style={{ width: 60 }} />
                       </label>
                     </div>
-                    <input type="range" min={0} max={key === "investing" ? 5000 : 3000} step={25} value={scenario.expenses[key]} onChange={event => updateExpense(key, Number(event.target.value))} />
+                    <input type="range" min={min} max={max} step={step} value={value} onChange={event => onChange(Number(event.target.value))} />
                   </div>
                 ))}
               </div>
             </div>
+          </article>
+          <article className="finance-card cashflow-card">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">D3 cashflow lens</p><h2>Where monthly income goes</h2>
+                <p className="panel-note">Linked to the budget mixer above — hover any bar for the exact amount.</p>
+              </div>
+              <span className={`status-pill ${score.monthlySurplus < 0 ? "danger" : ""}`}>{score.monthlySurplus >= 0 ? "Positive buffer" : "Over budget"}</span>
+            </div>
+            <CashflowChart scenario={scenario} score={score} />
           </article>
         </section>
 
@@ -498,12 +515,71 @@ function App() {
           </article>
         </section>
 
+        <section className="readiness-viz-grid app-section" aria-label="Readiness planning visualizations">
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div><p className="panel-kicker">Lender guidelines</p><h2>Where you sit vs. common thresholds</h2>
+                <p className="panel-note">DTI and down payment zones used by many conventional lenders.</p></div>
+            </div>
+            <GuidelineGauges score={score} />
+          </article>
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div><p className="panel-kicker">DTI breakdown</p><h2>How income is allocated</h2>
+                <p className="panel-note">Housing, other debt, and total DTI vs. the 36% guideline.</p></div>
+            </div>
+            <DtiDecomposition scenario={scenario} score={score} />
+          </article>
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div><p className="panel-kicker">Top improvement</p><h2>Biggest approval lift</h2>
+                <p className="panel-note">Model-backed before/after if you apply the top counterfactual.</p></div>
+            </div>
+            <CounterfactualBar score={score} />
+          </article>
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div><p className="panel-kicker">Savings path</p><h2>Timeline to down payment milestones</h2>
+                <p className="panel-note">Uses monthly surplus plus investing as your savings rate.</p></div>
+            </div>
+            <SavingsTimeline scenario={scenario} score={score} />
+          </article>
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div><p className="panel-kicker">Affordability band</p><h2>Price range at your income</h2>
+                <p className="panel-note">Conservative (32% DTI) vs. stretch (36% DTI) vs. your target and market median.</p></div>
+            </div>
+            <AffordablePriceBand scenario={scenario} hmda={hmda} />
+          </article>
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div><p className="panel-kicker">Housing cost stack</p><h2>Full monthly payment estimate</h2>
+                <p className="panel-note">Principal, tax, insurance, and PMI when LTV exceeds 80%.</p></div>
+            </div>
+            <MonthlyPaymentStack scenario={scenario} />
+          </article>
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div><p className="panel-kicker">Loan programs</p><h2>Conventional, FHA, and VA checklist</h2>
+                <p className="panel-note">Quick pass/fail on down payment and DTI guidelines — not a credit decision.</p></div>
+            </div>
+            <LoanProgramChecklist score={score} />
+          </article>
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div><p className="panel-kicker">Rate sensitivity</p><h2>Payment and approval vs. interest rate</h2>
+                <p className="panel-note">±2% from 7.25% base — works offline; backend adds XGBoost approval curve.</p></div>
+            </div>
+            <RateSensitivityChart scenario={scenario} score={score} />
+          </article>
+        </section>
+
         {/* ── HMDA ── */}
         <section className={`hmda-grid app-section${agentHighlight === "hmda" ? " section-highlighted" : ""}`} data-section="hmda" aria-label="HMDA comparison">
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">HMDA approval by county</p><h2>Historical approval rate by county</h2>
-                <p className="panel-note">All 58 California counties. Color = HMDA approval rate. Click any county to filter the charts below.</p></div>
+                <p className="panel-note">All 58 California counties. Color = HMDA approval rate on a fixed 38–85% scale. Click any county to filter the charts below.</p></div>
               <span className="status-pill muted">{hmda?.source.name ?? "Loading HMDA"}</span>
             </div>
             {hmda && <ChoroplethMap hmda={hmda} scenario={scenario} selectedCounty={selectedHmdaCounty} scatterBrushedCounty={scatterBrushedCounty} onCountySelect={setSelectedHmdaCounty} onMarketSelect={marketName => updateScenario("market", marketName)} />}
@@ -532,21 +608,44 @@ function App() {
         <section className={`model-grid app-section${agentHighlight === "model" ? " section-highlighted" : ""}`} data-section="model" aria-label="Model audit">
           <article className="analysis-panel">
             <div className="panel-header">
-              <div><p className="panel-kicker">About the model</p><h2>{model?.modelName ?? "Loading model"}</h2>
-                <p className="panel-note">Trained on California HMDA data and calibrated for teaching — not a credit decision.</p></div>
-              <span className="status-pill muted">HMDA 2025</span>
+              <div>
+                <p className="panel-kicker">Model performance</p>
+                <h2>How well the XGBoost model fits HMDA data</h2>
+                <p className="panel-note">Hold-out test metrics on ~{model?.rows.test.toLocaleString() ?? "11k"} California applications.</p>
+              </div>
+              <span className="status-pill muted">AUC {model?.metrics.testAuc != null ? (model.metrics.testAuc * 100).toFixed(0) + "%" : "—"}</span>
             </div>
-            {model?.note && <p className="model-note"><AlertTriangle size={15} /> {model.note}</p>}
+            {model && <ModelMetricsChart report={model} />}
           </article>
-          <article className="analysis-panel wide-panel">
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Market comparison</p>
+                <h2>You vs. approved borrowers in {scenario.market}</h2>
+                <p className="panel-note">See where your scenario sits relative to historically approved applicants in this market.</p>
+              </div>
+            </div>
+            {hmda && <HmdaPeerComparison hmda={hmda} scenario={scenario} score={score} />}
+          </article>
+          <article className="analysis-panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">What the model learned</p>
+                <h2>Biggest factors in mortgage approvals</h2>
+                <p className="panel-note">Across ~58k California loans. DTI and down payment dominate — loan-type codes are hidden as they are not something you can change.</p>
+              </div>
+            </div>
+            {model && <GlobalFeatureImportance report={model} />}
+          </article>
+          <article className="analysis-panel">
             <div className="panel-header"><div><p className="panel-kicker">Calibration</p><h2>Predicted vs. actual approval rates</h2>
-              <p className="panel-note">Points near the diagonal are well calibrated.</p></div></div>
+              <p className="panel-note">Points near the diagonal mean the model&apos;s probabilities match real outcomes.</p></div></div>
             {model && <CalibrationChart report={model} />}
           </article>
-          <article className="analysis-panel wide-panel">
+          <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Risk surface</p><h2>Approval likelihood across DTI and down payment</h2>
-                <p className="panel-note">Heatmap of XGBoost approval predictions across DTI × down-payment combinations. Click a cell to apply that DTI/DP to your scenario.</p></div>
+                <p className="panel-note">Green = higher approval. Click a cell to update debt and savings — the chart beside it updates too.</p></div>
               <span className="status-pill muted">Your position marked</span>
             </div>
             <RiskSurface score={score} scenario={scenario}
@@ -557,10 +656,13 @@ function App() {
               }}
               agentAnnotation={agentAnnotation?.section === "model" ? { dti: agentAnnotation.riskSurfaceDti, dp: agentAnnotation.riskSurfaceDp } : null} />
           </article>
-          <article className="analysis-panel wide-panel">
+          <article className="analysis-panel">
             <div className="panel-header">
-              <div><p className="panel-kicker">Feature impact</p><h2>What's driving your approval likelihood</h2>
-                <p className="panel-note">Each bar shows how nudging that factor would shift approval probability. Values update as you adjust sliders.</p></div>
+              <div>
+                <p className="panel-kicker">Your scenario</p>
+                <h2>What moves your approval likelihood</h2>
+                <p className="panel-note">Each bar shows how nudging debt, savings, income, or price would shift approval. Linked to the risk surface on the left.</p>
+              </div>
               <span className="status-pill muted">{score.explanationMode === "model-perturbation" ? "Model perturbation" : "Scenario drivers"}</span>
             </div>
             <ShapWaterfallChart score={score} />

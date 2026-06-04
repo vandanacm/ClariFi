@@ -178,6 +178,12 @@ export type RiskGridCell = {
   approval: number;
 };
 
+export type RateSensitivityPoint = {
+  rate: number;
+  payment: number;
+  approval: number;
+};
+
 export type AgentAnnotation = {
   section: string;
   scatterHighlightApproved?: boolean;

@@ -1,5 +1,5 @@
 name,email,password,persona,target_market,monthly_income,monthly_debt,savings,target_price,expected_position
 Sofia Chen,sofia.sf@clarifi.test,Testpass123,High income SF buyer,Alameda,18500,900,240000,1450000,Strong Bay Area affordability
-Arjun Patel,arjun.bay@clarifi.test,Testpass123,Median-plus Bay buyer,Alameda,12800,1200,130000,980000,Borderline/possible Bay purchase
+Arjun Patel,arjun.bay@clarifi.test,Testpass123,Median-plus SoCal buyer,San Diego,12800,1200,130000,790000,Borderline/possible San Diego purchase
 Maya Gomez,maya.sac@clarifi.test,Testpass123,Mid-income Sacramento buyer,Sacramento,9200,950,85000,560000,Good fit in Sacramento region
 Diego Rivera,diego.inland@clarifi.test,Testpass123,Lower-income Inland renter,Los Angeles,6200,1400,35000,520000,Likely constrained in coastal markets

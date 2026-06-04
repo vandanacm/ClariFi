@@ -1,6 +1,13 @@
 import * as d3 from "d3";
 import type { ScoreResult } from "../types";
 
+function formatImpact(impact: number): string {
+  const pct = impact * 100;
+  if (Math.abs(pct) < 0.05) return "±0.0%";
+  if (Math.abs(pct) < 1) return `${impact >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
+  return `${impact >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+}
+
 export function ShapWaterfallChart({ score }: { score: ScoreResult }) {
   const raw =
     score.localShap ??
@@ -15,9 +22,9 @@ export function ShapWaterfallChart({ score }: { score: ScoreResult }) {
 
   const data = [...raw]
     .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
-    .slice(0, 7);
+    .slice(0, 6);
 
-  const width = 520;
+  const width = 480;
   const margin = { top: 10, right: 64, bottom: 28, left: 138 };
   const barH = 22;
   const gap = 7;
@@ -25,16 +32,18 @@ export function ShapWaterfallChart({ score }: { score: ScoreResult }) {
   const plotH = data.length * (barH + gap);
   const height = margin.top + plotH + margin.bottom;
 
-  const maxAbs = Math.max(...data.map((d) => Math.abs(d.impact)), 0.05);
+  const maxAbs = Math.max(...data.map((d) => Math.abs(d.impact)), 0.005);
   const x = d3
     .scaleLinear()
     .domain([-maxAbs * 1.2, maxAbs * 1.2])
     .range([0, plotW]);
   const zero = x(0);
 
-  const ticks = [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3].filter(
-    (v) => v >= -maxAbs * 1.2 && v <= maxAbs * 1.2
-  );
+  const tickStep = maxAbs <= 0.02 ? 0.005 : maxAbs <= 0.05 ? 0.01 : 0.05;
+  const ticks: number[] = [];
+  for (let v = -maxAbs * 1.2; v <= maxAbs * 1.2 + tickStep / 2; v += tickStep) {
+    ticks.push(Math.round(v * 1000) / 1000);
+  }
 
   return (
     <svg
@@ -55,7 +64,7 @@ export function ShapWaterfallChart({ score }: { score: ScoreResult }) {
       />
       {data.map((d, i) => {
         const y = margin.top + i * (barH + gap);
-        const barW = Math.max(Math.abs(x(d.impact) - zero), 2);
+        const barW = Math.max(Math.abs(x(d.impact) - zero), d.impact !== 0 ? 3 : 0);
         const barX =
           d.impact >= 0
             ? margin.left + zero
@@ -93,8 +102,7 @@ export function ShapWaterfallChart({ score }: { score: ScoreResult }) {
               y={y + barH / 2 + 3}
               textAnchor={d.impact >= 0 ? "start" : "end"}
             >
-              {d.impact >= 0 ? "+" : ""}
-              {(d.impact * 100).toFixed(1)}%
+              {formatImpact(d.impact)}
             </text>
           </g>
         );
@@ -108,7 +116,7 @@ export function ShapWaterfallChart({ score }: { score: ScoreResult }) {
           y={margin.top + plotH + 16}
           textAnchor="middle"
         >
-          {v === 0 ? "0" : `${v > 0 ? "+" : ""}${(v * 100).toFixed(0)}%`}
+          {v === 0 ? "0" : `${v > 0 ? "+" : ""}${(v * 100).toFixed(1)}%`}
         </text>
       ))}
       <g

@@ -535,7 +535,7 @@ h2 {
 
 .finance-strip {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.9fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   margin-bottom: 18px;
 }
@@ -1453,7 +1453,8 @@ input[type="range"] {
   .finance-strip,
   .workspace-grid,
   .hmda-grid,
-  .model-grid {
+  .model-grid,
+  .readiness-viz-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2128,6 +2129,231 @@ input[type="range"] {
 
 .hmda-grid .wide-panel {
   grid-column: 1 / -1;
+}
+
+.model-grid .wide-panel {
+  grid-column: 1 / -1;
+}
+
+.readiness-viz-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.readiness-viz-grid .analysis-panel {
+  overflow: hidden;
+}
+
+.readiness-viz-grid svg {
+  width: 100%;
+}
+
+.readiness-viz-grid .rate-sensitivity-chart,
+.readiness-viz-grid .savings-timeline {
+  max-height: 160px;
+}
+
+.readiness-viz-grid .guideline-gauges {
+  max-height: 140px;
+}
+
+.loan-program-checklist {
+  display: grid;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.loan-program-head,
+.loan-program-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 0.7fr 0.9fr;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.loan-program-head {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.loan-program-row {
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+}
+
+.loan-program-row strong {
+  display: block;
+  color: var(--ink);
+}
+
+.loan-program-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin-top: 2px;
+}
+
+.loan-check {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  margin-right: 4px;
+}
+
+.loan-check.ok {
+  background: rgba(16, 185, 129, 0.18);
+  color: #10b981;
+}
+
+.loan-check.no {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.loan-program-row .pass {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.loan-program-row .fail {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.loan-program-note {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.model-metrics-chart,
+.hmda-peer-comparison {
+  display: grid;
+  gap: 12px;
+}
+
+.model-metrics-meta,
+.hmda-peer-market {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.model-metric-row,
+.hmda-peer-row {
+  display: grid;
+  gap: 6px;
+}
+
+.model-metric-row header,
+.hmda-peer-row header,
+.model-metric-row footer,
+.hmda-peer-row footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.model-metric-row header,
+.hmda-peer-row header {
+  color: var(--muted);
+}
+
+.model-metric-row footer,
+.hmda-peer-row footer {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.model-metric-track,
+.hmda-peer-bars {
+  height: 10px;
+  background: var(--soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.model-metric-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--teal);
+}
+
+.model-metric-fill.positive { background: var(--teal); }
+.model-metric-fill.neutral { background: var(--gold); }
+.model-metric-fill.warning { background: var(--rose); }
+
+.hmda-peer-bar-wrap {
+  position: relative;
+  height: 10px;
+}
+
+.hmda-peer-bar-wrap .peer-bar {
+  position: absolute;
+  left: 0;
+  top: 3px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--muted);
+  opacity: 0.45;
+}
+
+.hmda-peer-bar-wrap .user-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--teal);
+}
+
+.hmda-peer-bar-wrap .user-bar.warning {
+  background: var(--rose);
+}
+
+.model-metrics-footnote {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.model-metric-row strong.positive,
+.hmda-peer-row strong.positive {
+  color: var(--teal-deep);
+}
+
+.model-metric-row strong.warning,
+.hmda-peer-row strong.warning {
+  color: var(--warn-ink);
+}
+
+.model-metric-row strong.neutral {
+  color: var(--muted);
+}
+
+.global-feature-chart {
+  width: 100%;
+  max-height: 320px;
 }
 
 /* ── Section highlight pulse (guided highlight) ─────────────── */

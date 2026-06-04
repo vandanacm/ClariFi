@@ -169,6 +169,20 @@ def test_risk_grid_endpoint() -> None:
     assert isinstance(grid, list)
 
 
+def test_rate_sensitivity_endpoint() -> None:
+    payload = ScenarioInput().model_dump()
+    resp = client.post("/api/rate-sensitivity", json=payload)
+    assert resp.status_code == 200
+    points = resp.json()
+    assert isinstance(points, list)
+    assert len(points) >= 5
+    for point in points:
+        assert "rate" in point
+        assert "payment" in point
+        assert "approval" in point
+        assert 0.0 <= point["approval"] <= 1.0
+
+
 def test_agent_explain_returns_annotation() -> None:
     payload = {"question": "Why was I denied?", "scenario": ScenarioInput().model_dump()}
     resp = client.post("/api/agent/explain", json=payload)

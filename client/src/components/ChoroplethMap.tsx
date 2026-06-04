@@ -87,19 +87,10 @@ export function ChoroplethMap({
   const [hoveredCounty, setHoveredCounty] = useState<string | null>(null);
   const hoveredInfo = hoveredCounty ? readinessMap[hoveredCounty] : null;
 
-  const approvalExtent = useMemo(() => {
-    const rates = Object.values(readinessMap)
-      .map((entry) => entry.approvalRate)
-      .filter((rate): rate is number => rate != null && rate > 0);
-    if (!rates.length) return [0.4, 0.85] as [number, number];
-    const lo = Math.min(...rates);
-    const hi = Math.max(...rates);
-    const pad = Math.max((hi - lo) * 0.06, 0.02);
-    return [Math.max(0, lo - pad), Math.min(1, hi + pad)] as [
-      number,
-      number,
-    ];
-  }, [readinessMap]);
+  const approvalExtent = useMemo(
+    () => [0.38, 0.85] as [number, number],
+    []
+  );
 
   const approvalColor = useMemo(
     () => d3.scaleSequential(approvalExtent, d3.interpolateRdYlGn),
@@ -215,7 +206,7 @@ export function ChoroplethMap({
           fill="url(#readinessLegendGrad)"
         />
         <text fontSize="9" fill="var(--muted)" y={22}>
-          {(approvalExtent[0] * 100).toFixed(0)}%
+          {(approvalExtent[0] * 100).toFixed(0)}% (low)
         </text>
         <text
           fontSize="9"
@@ -224,7 +215,10 @@ export function ChoroplethMap({
           y={22}
           textAnchor="end"
         >
-          {(approvalExtent[1] * 100).toFixed(0)}%
+          {(approvalExtent[1] * 100).toFixed(0)}% (high)
+        </text>
+        <text fontSize="8" fill="var(--muted)" x={0} y={36}>
+          Fixed scale · not relative ranking
         </text>
       </g>
 

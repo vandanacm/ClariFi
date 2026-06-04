@@ -286,7 +286,7 @@ def _local_shap_model(scenario: ScenarioInput, baseline_prob: float) -> list[dic
         prob = _predict_scenario_probability(patched)
         if prob is None:
             return None
-        impact = round(prob - baseline_prob, 3)
+        impact = round(prob - baseline_prob, 4)
         insights.append({
             "feature": feature, "label": label,
             "value": round(value, 2) if isinstance(value, float) else value,
@@ -448,6 +448,55 @@ def model_score(scenario: ScenarioInput) -> dict[str, Any]:
 
 DTI_STEPS = [round(v, 2) for v in [0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55]]
 DP_STEPS = [round(v, 2) for v in [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]]
+
+BASE_MORTGAGE_RATE = 0.0725
+RATE_DELTAS = [-0.02, -0.015, -0.01, -0.005, 0.0, 0.005, 0.01, 0.015, 0.02]
+
+
+def _monthly_pi(loan: float, annual_rate: float = BASE_MORTGAGE_RATE, term_months: int = 360) -> float:
+    if loan <= 0:
+        return 0.0
+    r = annual_rate / 12
+    if r == 0:
+        return loan / term_months
+    factor = (1 + r) ** term_months
+    return loan * r * factor / (factor - 1)
+
+
+def _payment_breakdown(price: float, savings: float, annual_rate: float = BASE_MORTGAGE_RATE) -> dict[str, float]:
+    loan = max(price - savings, 0)
+    ltv = loan / price if price > 0 else 0
+    pi = _monthly_pi(loan, annual_rate)
+    tax = price * 0.012 / 12
+    insurance = price * 0.0035 / 12
+    pmi = (loan * 0.005 / 12) if ltv > 0.8 else 0.0
+    return {"pi": pi, "tax": tax, "insurance": insurance, "pmi": pmi, "total": pi + tax + insurance + pmi}
+
+
+def _compute_rate_sensitivity(scenario: ScenarioInput) -> list[dict[str, float]]:
+    base_housing = (scenario.price - scenario.savings) * 0.0062
+    flexible = sum(scenario.expenses.values())
+    points: list[dict[str, float]] = []
+    for delta in RATE_DELTAS:
+        rate = BASE_MORTGAGE_RATE + delta
+        breakdown = _payment_breakdown(scenario.price, scenario.savings, rate)
+        extra = breakdown["pi"] - base_housing
+        patched = scenario.model_copy(update={"debt": round(max(scenario.debt + extra, 0))})
+        prob = _predict_scenario_probability(patched)
+        if prob is None:
+            patched_dti = (patched.debt + base_housing) / max(scenario.income, 1)
+            surplus = scenario.income - patched.debt - base_housing - flexible
+            prob = _approval_from_factors(
+                patched_dti,
+                scenario.savings / max(scenario.price, 1),
+                surplus,
+            )
+        points.append({
+            "rate": round(rate, 4),
+            "payment": round(breakdown["total"]),
+            "approval": round(prob, 3),
+        })
+    return points
 
 
 def _compute_risk_grid(scenario: ScenarioInput) -> list[dict[str, float]]:
@@ -865,6 +914,11 @@ def risk_grid(payload: RiskGridRequest) -> list[dict[str, float]]:
         savings=payload.savings, price=payload.price, expenses=payload.expenses,
     )
     return _compute_risk_grid(scenario)
+
+
+@app.post("/api/rate-sensitivity")
+def rate_sensitivity(payload: ScenarioInput) -> list[dict[str, float]]:
+    return _compute_rate_sensitivity(payload)
 
 
 @app.post("/api/scenarios")
