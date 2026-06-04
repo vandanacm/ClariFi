@@ -1,5 +1,9 @@
+# OS / editor
 .DS_Store
-reports/
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Dependencies & build
 .venv/
 node_modules/
 dist/
@@ -9,15 +13,30 @@ __pycache__/
 *.pyc
 vite.config.js
 vite.config.d.ts
-data/clarifi_store.json
-client/public/data/model_outputs/
+
+# Secrets — never commit
 .env
-CLAUDE.local.md
-.claude/settings.local.json
+
+# Local-only docs / reports
+reports/
 PROGRESS_REPORT.md
 
-# Presentations & PDFs (generated / local copies)
+# Legacy root data path (app uses client/public/data/local_store.json)
+data/clarifi_store.json
+
+# Required runtime data — keep tracked in git:
+#   client/public/data/hmda_processed.json
+#   client/public/data/model_report.json
+#   client/public/data/model_outputs/   (XGBoost .joblib, SHAP report, scenario config)
+#   client/public/data/local_store.json (demo users; regenerated if missing)
+#   server/data/hmda_2025_sample_60000.csv
+
+# Generated presentations (rebuild: npm run build:video-presentation)
 *.pdf
 *.pptx
 *.potx
 docs/presentation_assets/
+
+# Optional reference video extracts (not needed to run the app)
+docs/reference_video_frames/
+videoplayback.mp4

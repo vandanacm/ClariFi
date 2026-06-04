@@ -1,0 +1,73 @@
+feature,label,mean_shap,mean_abs_shap,direction
+num__dti_numeric,dti numeric,0.3176826,0.69190055,positive
+num__down_payment_rate_proxy,down payment rate proxy,0.044696636,0.1534528,positive
+cat__loan_type_1,loan type 1,-0.0450511,0.15237616,negative
+num__loan_vs_county_median,loan vs county median,0.013774602,0.118626624,positive
+num__loan_to_income,loan to income,0.040567983,0.10008761,positive
+num__county_applications,county applications,0.008176817,0.09983425,positive
+num__income_vs_county_median,income vs county median,0.02757688,0.09603753,positive
+num__loan_term,loan term,0.03682047,0.08979965,positive
+cat__loan_type_3,loan type 3,-0.011154922,0.072160155,negative
+num__property_value,property value,0.022325132,0.066468365,positive
+cat__loan_type_2,loan type 2,0.0040420527,0.046624526,positive
+num__combined_loan_to_value_ratio,combined loan to value ratio,0.01267038,0.037333954,positive
+num__county_median_loan,county median loan,-0.00025757932,0.037053213,negative
+num__income,income,0.01247547,0.036967184,positive
+num__loan_amount,loan amount,0.007779141,0.031181121,positive
+num__high_dti_flag,high dti flag,0.005691768,0.031096999,positive
+num__county_median_income,county median income,0.0033139728,0.02352593,positive
+num__log_property_value,log property value,0.0032884495,0.020336553,positive
+num__log_loan_amount,log loan amount,0.0054212185,0.013863545,positive
+cat__county_code_6061.0,county code 6061.0,0.00056262146,0.013234195,positive
+cat__county_code_6067.0,county code 6067.0,-2.5649031e-05,0.012691807,negative
+num__log_income,log income,0.0006096383,0.01128968,positive
+cat__county_code_6097.0,county code 6097.0,0.0019113427,0.009738306,positive
+cat__county_code_6029.0,county code 6029.0,0.0010022884,0.006410125,positive
+cat__county_code_6071.0,county code 6071.0,-0.000303689,0.0062326076,negative
+cat__county_code_6085.0,county code 6085.0,0.0016498731,0.004705878,positive
+cat__county_code_6077.0,county code 6077.0,0.00040492913,0.0032170976,positive
+cat__county_code_6039.0,county code 6039.0,-0.0005721643,0.0029058729,negative
+num__high_ltv_flag,high ltv flag,2.0420015e-05,0.0013457846,positive
+cat__county_code_6065.0,county code 6065.0,-0.00015093035,0.0007246833,negative
+cat__county_code_6099.0,county code 6099.0,0.00022108317,0.00071166654,positive
+num__income_decile,income decile,0.00013076352,0.0006640263,positive
+cat__county_code_6111.0,county code 6111.0,-0.00010765454,0.00057995936,negative
+cat__county_code_6013.0,county code 6013.0,4.712706e-05,0.00044225948,positive
+cat__county_code_6059.0,county code 6059.0,8.615974e-05,0.0003794755,positive
+cat__county_code_6001.0,county code 6001.0,0.0,0.0,positive
+cat__county_code_6007.0,county code 6007.0,0.0,0.0,positive
+cat__county_code_6005.0,county code 6005.0,0.0,0.0,positive
+num__loan_amount_decile,loan amount decile,0.0,0.0,positive
+num__jumbo_proxy_flag,jumbo proxy flag,0.0,0.0,positive
+cat__county_code_6055.0,county code 6055.0,0.0,0.0,positive
+cat__county_code_6053.0,county code 6053.0,0.0,0.0,positive
+cat__county_code_6047.0,county code 6047.0,0.0,0.0,positive
+cat__county_code_6045.0,county code 6045.0,0.0,0.0,positive
+cat__county_code_6041.0,county code 6041.0,0.0,0.0,positive
+cat__county_code_6037.0,county code 6037.0,0.0,0.0,positive
+cat__county_code_6033.0,county code 6033.0,0.0,0.0,positive
+cat__county_code_6031.0,county code 6031.0,0.0,0.0,positive
+cat__county_code_6009.0,county code 6009.0,0.0,0.0,positive
+cat__county_code_6025.0,county code 6025.0,0.0,0.0,positive
+cat__county_code_6023.0,county code 6023.0,0.0,0.0,positive
+cat__county_code_6019.0,county code 6019.0,0.0,0.0,positive
+cat__county_code_6017.0,county code 6017.0,0.0,0.0,positive
+cat__county_code_6069.0,county code 6069.0,0.0,0.0,positive
+cat__county_code_6073.0,county code 6073.0,0.0,0.0,positive
+cat__county_code_6057.0,county code 6057.0,0.0,0.0,positive
+cat__county_code_6089.0,county code 6089.0,0.0,0.0,positive
+cat__county_code_6087.0,county code 6087.0,0.0,0.0,positive
+cat__county_code_6083.0,county code 6083.0,0.0,0.0,positive
+cat__county_code_6081.0,county code 6081.0,0.0,0.0,positive
+cat__county_code_6075.0,county code 6075.0,0.0,0.0,positive
+cat__county_code_6079.0,county code 6079.0,0.0,0.0,positive
+cat__county_code_6095.0,county code 6095.0,0.0,0.0,positive
+cat__county_code_6093.0,county code 6093.0,0.0,0.0,positive
+cat__county_code_6109.0,county code 6109.0,0.0,0.0,positive
+cat__county_code_6107.0,county code 6107.0,0.0,0.0,positive
+cat__county_code_6103.0,county code 6103.0,0.0,0.0,positive
+cat__county_code_6101.0,county code 6101.0,0.0,0.0,positive
+cat__county_code_infrequent_sklearn,county code infrequent sklearn,0.0,0.0,positive
+cat__county_code_6115.0,county code 6115.0,0.0,0.0,positive
+cat__county_code_6113.0,county code 6113.0,0.0,0.0,positive
+cat__loan_type_infrequent_sklearn,loan type infrequent sklearn,0.0,0.0,positive

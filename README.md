@@ -49,15 +49,17 @@ The app connects to MongoDB Atlas by default (open to all IPs). If Atlas is unre
 
 If you want AI-powered explanations, add your OpenRouter API key in `.env`. Without it, the app still works using rule-based template explanations.
 
-**5. Verify the XGBoost model file is present**
+**5. XGBoost model artifacts**
 
-The pre-trained model should already be included at:
+After clone, confirm `client/public/data/model_outputs/` is present (tracked in git, ~600 KB). Required files:
 
-```
-client/public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib
-```
+| File | Purpose |
+|------|---------|
+| `hmda_2025_xgboost_calibrated_pipeline.joblib` | Live approval scoring |
+| `scenario_inference_config.json` | Feature engineering for the API |
+| `hmda_2025_xgboost_shap_report.json` | Calibration fallback + extended diagnostics |
 
-If this file is missing, the app will still run but will show "Model unavailable" instead of real XGBoost predictions. You can regenerate it by running the training notebook in `notebooks/`.
+If the folder is missing, the app still runs but shows **Model unavailable**. Regenerate from `notebooks/hmda_2025_xgboost_shap.ipynb` or copy artifacts from Colab/Drive into `client/public/data/model_outputs/`.
 
 **6. Start the FastAPI server**
 
@@ -120,7 +122,7 @@ To test with different personas, use the pre-configured test users below. All sh
 ```
 ClariFi/
 ├── client/                  # React 19 + TypeScript + Vite 6 frontend
-│   ├── public/data/         # Static JSON datasets + XGBoost .joblib model
+│   ├── public/data/         # HMDA/BLS JSON, model_report.json, model_outputs/
 │   ├── src/components/      # D3 chart components (one per file)
 │   ├── src/ReactApp.tsx     # Main dashboard with linked views
 │   ├── src/api.ts           # API client

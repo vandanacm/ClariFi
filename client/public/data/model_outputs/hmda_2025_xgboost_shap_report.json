@@ -1,0 +1,1375 @@
+{
+  "model_name": "XGBoost HMDA 2025 California approval model - leakage controlled",
+  "scope": {
+    "year": 2025,
+    "state": "CA",
+    "loan_purpose": "Home purchase only",
+    "occupancy": "Principal residence only",
+    "lien_status": "First lien only",
+    "target": "Approved/originated vs denied using HMDA action_taken"
+  },
+  "feature_policy": {
+    "excluded_leakage_fields": [
+      "interest_rate"
+    ],
+    "fairness_audit_only_fields": [
+      "applicant_age",
+      "applicant_sex"
+    ],
+    "used_numeric_features": [
+      "loan_amount",
+      "income",
+      "property_value",
+      "dti_numeric",
+      "combined_loan_to_value_ratio",
+      "loan_term",
+      "loan_to_income",
+      "down_payment_rate_proxy",
+      "log_income",
+      "log_loan_amount",
+      "log_property_value",
+      "high_dti_flag",
+      "high_ltv_flag",
+      "jumbo_proxy_flag",
+      "income_vs_county_median",
+      "loan_vs_county_median",
+      "county_applications",
+      "county_median_income",
+      "county_median_loan",
+      "income_decile",
+      "loan_amount_decile"
+    ],
+    "used_categorical_features": [
+      "county_code",
+      "loan_type"
+    ]
+  },
+  "eda_summary": {
+    "rows": 58012,
+    "columns": 36,
+    "approval_rate": 0.9015720885334069,
+    "denial_rate": 0.09842791146659313,
+    "counties": 59
+  },
+  "metrics": {
+    "model": "XGBoost tuned + isotonic calibration",
+    "test_auc": 0.8040326500013141,
+    "raw_test_auc": 0.805521124162116,
+    "average_precision": 0.9636824408601274,
+    "raw_average_precision": 0.9656835716626441,
+    "brier_score": 0.06320743893562601,
+    "raw_brier_score": 0.146493154219279,
+    "best_threshold_by_balanced_accuracy": 0.8999999999999999,
+    "f1_at_best_threshold": 0.8747535540105842,
+    "balanced_accuracy_at_best_threshold": 0.7352368843595702,
+    "precision_at_best_threshold": 0.956541472824237,
+    "recall_at_best_threshold": 0.8058503011184399,
+    "denial_recall_at_best_threshold": 0.6646234676007006,
+    "accuracy_at_best_threshold": 0.7919503576661209,
+    "train_rows": 37127,
+    "calibration_rows": 9282,
+    "test_rows": 11603,
+    "positive_rate_train": 0.9015810596062165,
+    "positive_rate_calibration": 0.9015298427063133,
+    "positive_rate_test": 0.9015771783159527
+  },
+  "calibration_comparison": [
+    {
+      "model": "Raw XGBoost",
+      "calibration_auc": 0.8136465214990105,
+      "calibration_brier": 0.14588281253609742,
+      "mean_probability": 0.627440869808197,
+      "actual_approval_rate": 0.9015298427063133
+    },
+    {
+      "model": "Calibrated XGBoost",
+      "calibration_auc": 0.8171433532347883,
+      "calibration_brier": 0.06263872094153171,
+      "mean_probability": 0.9015300985095804,
+      "actual_approval_rate": 0.9015298427063133
+    }
+  ],
+  "baseline_metrics": {
+    "model": "Logistic Regression baseline",
+    "auc": 0.7290717954822106,
+    "average_precision": 0.9507509356457712,
+    "f1": 0.7929805013927577,
+    "balanced_accuracy": 0.6772960898381462
+  },
+  "model_comparison": [
+    {
+      "model": "Logistic Regression baseline",
+      "auc": 0.7290717954822106,
+      "average_precision": 0.9507509356457712,
+      "f1": 0.7929805013927577,
+      "balanced_accuracy": 0.6772960898381462,
+      "brier_score": NaN
+    },
+    {
+      "model": "Raw XGBoost tuned",
+      "auc": 0.805521124162116,
+      "average_precision": 0.9656835716626441,
+      "f1": NaN,
+      "balanced_accuracy": NaN,
+      "brier_score": 0.146493154219279
+    },
+    {
+      "model": "Calibrated XGBoost tuned",
+      "auc": 0.8040326500013141,
+      "average_precision": 0.9636824408601274,
+      "f1": 0.8747535540105842,
+      "balanced_accuracy": 0.7352368843595702,
+      "brier_score": 0.06320743893562601
+    }
+  ],
+  "best_params": {
+    "model__subsample": 1.0,
+    "model__reg_lambda": 3,
+    "model__reg_alpha": 0,
+    "model__n_estimators": 200,
+    "model__min_child_weight": 5,
+    "model__max_depth": 4,
+    "model__learning_rate": 0.08,
+    "model__gamma": 0.5,
+    "model__colsample_bytree": 0.8
+  },
+  "top_shap_features": [
+    {
+      "feature": "num__dti_numeric",
+      "label": "dti numeric",
+      "mean_shap": 0.3176825940608978,
+      "mean_abs_shap": 0.6919005513191223,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__down_payment_rate_proxy",
+      "label": "down payment rate proxy",
+      "mean_shap": 0.044696636497974396,
+      "mean_abs_shap": 0.1534527987241745,
+      "direction": "positive"
+    },
+    {
+      "feature": "cat__loan_type_1",
+      "label": "loan type 1",
+      "mean_shap": -0.045051101595163345,
+      "mean_abs_shap": 0.15237616002559662,
+      "direction": "negative"
+    },
+    {
+      "feature": "num__loan_vs_county_median",
+      "label": "loan vs county median",
+      "mean_shap": 0.013774601742625237,
+      "mean_abs_shap": 0.11862662434577942,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__loan_to_income",
+      "label": "loan to income",
+      "mean_shap": 0.04056798294186592,
+      "mean_abs_shap": 0.10008761286735535,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__county_applications",
+      "label": "county applications",
+      "mean_shap": 0.008176816627383232,
+      "mean_abs_shap": 0.09983424842357635,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__income_vs_county_median",
+      "label": "income vs county median",
+      "mean_shap": 0.027576880529522896,
+      "mean_abs_shap": 0.09603752940893173,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__loan_term",
+      "label": "loan term",
+      "mean_shap": 0.03682047128677368,
+      "mean_abs_shap": 0.08979965001344681,
+      "direction": "positive"
+    },
+    {
+      "feature": "cat__loan_type_3",
+      "label": "loan type 3",
+      "mean_shap": -0.011154921725392342,
+      "mean_abs_shap": 0.07216015458106995,
+      "direction": "negative"
+    },
+    {
+      "feature": "num__property_value",
+      "label": "property value",
+      "mean_shap": 0.02232513204216957,
+      "mean_abs_shap": 0.06646836549043655,
+      "direction": "positive"
+    },
+    {
+      "feature": "cat__loan_type_2",
+      "label": "loan type 2",
+      "mean_shap": 0.004042052663862705,
+      "mean_abs_shap": 0.046624526381492615,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__combined_loan_to_value_ratio",
+      "label": "combined loan to value ratio",
+      "mean_shap": 0.012670380063354969,
+      "mean_abs_shap": 0.037333954125642776,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__county_median_loan",
+      "label": "county median loan",
+      "mean_shap": -0.0002575793187133968,
+      "mean_abs_shap": 0.03705321252346039,
+      "direction": "negative"
+    },
+    {
+      "feature": "num__income",
+      "label": "income",
+      "mean_shap": 0.012475470080971718,
+      "mean_abs_shap": 0.03696718439459801,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__loan_amount",
+      "label": "loan amount",
+      "mean_shap": 0.007779140956699848,
+      "mean_abs_shap": 0.03118112124502659,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__high_dti_flag",
+      "label": "high dti flag",
+      "mean_shap": 0.0056917681358754635,
+      "mean_abs_shap": 0.03109699860215187,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__county_median_income",
+      "label": "county median income",
+      "mean_shap": 0.0033139728475362062,
+      "mean_abs_shap": 0.02352592907845974,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__log_property_value",
+      "label": "log property value",
+      "mean_shap": 0.0032884494867175817,
+      "mean_abs_shap": 0.02033655345439911,
+      "direction": "positive"
+    },
+    {
+      "feature": "num__log_loan_amount",
+      "label": "log loan amount",
+      "mean_shap": 0.00542121846228838,
+      "mean_abs_shap": 0.013863544911146164,
+      "direction": "positive"
+    },
+    {
+      "feature": "cat__county_code_6061.0",
+      "label": "county code 6061.0",
+      "mean_shap": 0.0005626214551739395,
+      "mean_abs_shap": 0.013234195299446583,
+      "direction": "positive"
+    },
+    {
+      "feature": "cat__county_code_6067.0",
+      "label": "county code 6067.0",
+      "mean_shap": -2.5649031158536673e-05,
+      "mean_abs_shap": 0.012691807001829147,
+      "direction": "negative"
+    },
+    {
+      "feature": "num__log_income",
+      "label": "log income",
+      "mean_shap": 0.0006096382858231664,
+      "mean_abs_shap": 0.011289680376648903,
+      "direction": "positive"
+    },
+    {
+      "feature": "cat__county_code_6097.0",
+      "label": "county code 6097.0",
+      "mean_shap": 0.0019113427260890603,
+      "mean_abs_shap": 0.00973830558359623,
+      "direction": "positive"
+    },
+    {
+      "feature": "cat__county_code_6029.0",
+      "label": "county code 6029.0",
+      "mean_shap": 0.0010022884234786034,
+      "mean_abs_shap": 0.0064101251773536205,
+      "direction": "positive"
+    },
+    {
+      "feature": "cat__county_code_6071.0",
+      "label": "county code 6071.0",
+      "mean_shap": -0.00030368901207111776,
+      "mean_abs_shap": 0.006232607644051313,
+      "direction": "negative"
+    }
+  ],
+  "calibration": [
+    {
+      "bin": "(-0.001, 0.843]",
+      "applications": 1264,
+      "predicted_rate": 0.5317032819531292,
+      "actual_rate": 0.5379746835443038,
+      "raw_predicted_rate": 0.1951867640018463
+    },
+    {
+      "bin": "(0.843, 0.888]",
+      "applications": 1124,
+      "predicted_rate": 0.8731097149467129,
+      "actual_rate": 0.8825622775800712,
+      "raw_predicted_rate": 0.48089921474456787
+    },
+    {
+      "bin": "(0.888, 0.93]",
+      "applications": 1348,
+      "predicted_rate": 0.914957469533742,
+      "actual_rate": 0.9109792284866469,
+      "raw_predicted_rate": 0.5704600811004639
+    },
+    {
+      "bin": "(0.93, 0.942]",
+      "applications": 1072,
+      "predicted_rate": 0.941600697254067,
+      "actual_rate": 0.9402985074626866,
+      "raw_predicted_rate": 0.628004252910614
+    },
+    {
+      "bin": "(0.942, 0.959]",
+      "applications": 1976,
+      "predicted_rate": 0.9585760235786438,
+      "actual_rate": 0.9549595141700404,
+      "raw_predicted_rate": 0.6760547757148743
+    },
+    {
+      "bin": "(0.959, 0.962]",
+      "applications": 799,
+      "predicted_rate": 0.9616519212722778,
+      "actual_rate": 0.9599499374217773,
+      "raw_predicted_rate": 0.711935818195343
+    },
+    {
+      "bin": "(0.962, 0.968]",
+      "applications": 2804,
+      "predicted_rate": 0.9682079841423987,
+      "actual_rate": 0.9657631954350927,
+      "raw_predicted_rate": 0.7601383924484253
+    },
+    {
+      "bin": "(0.968, 0.98]",
+      "applications": 867,
+      "predicted_rate": 0.9799480403858347,
+      "actual_rate": 0.9792387543252595,
+      "raw_predicted_rate": 0.824100911617279
+    },
+    {
+      "bin": "(0.98, 1.0]",
+      "applications": 349,
+      "predicted_rate": 0.9925505477924401,
+      "actual_rate": 0.9799426934097422,
+      "raw_predicted_rate": 0.8717300891876221
+    }
+  ],
+  "county_summary": [
+    {
+      "county_code": "6037.0",
+      "applications": 9299,
+      "approval_rate": 0.8825680180664588,
+      "median_income": 192.0,
+      "median_loan": 685000.0,
+      "median_dti": 43.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6065.0",
+      "applications": 5659,
+      "approval_rate": 0.8794840077752253,
+      "median_income": 137.0,
+      "median_loan": 505000.0,
+      "median_dti": 45.0,
+      "median_ltv": 92.1585
+    },
+    {
+      "county_code": "6073.0",
+      "applications": 5109,
+      "approval_rate": 0.8964572323350949,
+      "median_income": 188.0,
+      "median_loan": 685000.0,
+      "median_dti": 43.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6071.0",
+      "applications": 3987,
+      "approval_rate": 0.8976674191121143,
+      "median_income": 128.0,
+      "median_loan": 465000.0,
+      "median_dti": 45.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6059.0",
+      "applications": 3550,
+      "approval_rate": 0.8991549295774648,
+      "median_income": 230.0,
+      "median_loan": 795000.0,
+      "median_dti": 42.0,
+      "median_ltv": 79.209
+    },
+    {
+      "county_code": "6067.0",
+      "applications": 3341,
+      "approval_rate": 0.914396887159533,
+      "median_income": 132.0,
+      "median_loan": 445000.0,
+      "median_dti": 42.0,
+      "median_ltv": 87.019
+    },
+    {
+      "county_code": "6085.0",
+      "applications": 2591,
+      "approval_rate": 0.9147047472018526,
+      "median_income": 312.5,
+      "median_loan": 1035000.0,
+      "median_dti": 40.0,
+      "median_ltv": 75.0
+    },
+    {
+      "county_code": "6001.0",
+      "applications": 2251,
+      "approval_rate": 0.9249222567747668,
+      "median_income": 236.0,
+      "median_loan": 775000.0,
+      "median_dti": 40.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6013.0",
+      "applications": 2035,
+      "approval_rate": 0.9135135135135135,
+      "median_income": 189.0,
+      "median_loan": 635000.0,
+      "median_dti": 42.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6029.0",
+      "applications": 1810,
+      "approval_rate": 0.881767955801105,
+      "median_income": 103.0,
+      "median_loan": 355000.0,
+      "median_dti": 44.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6077.0",
+      "applications": 1658,
+      "approval_rate": 0.913751507840772,
+      "median_income": 141.0,
+      "median_loan": 505000.0,
+      "median_dti": 43.0,
+      "median_ltv": 89.99
+    },
+    {
+      "county_code": "6019.0",
+      "applications": 1613,
+      "approval_rate": 0.9051456912585245,
+      "median_income": 111.0,
+      "median_loan": 375000.0,
+      "median_dti": 43.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6061.0",
+      "applications": 1296,
+      "approval_rate": 0.9444444444444444,
+      "median_income": 164.0,
+      "median_loan": 515000.0,
+      "median_dti": 41.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6111.0",
+      "applications": 1220,
+      "approval_rate": 0.9065573770491804,
+      "median_income": 180.0,
+      "median_loan": 665000.0,
+      "median_dti": 43.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6099.0",
+      "applications": 938,
+      "approval_rate": 0.8859275053304904,
+      "median_income": 115.0,
+      "median_loan": 415000.0,
+      "median_dti": 44.0,
+      "median_ltv": 93.0
+    },
+    {
+      "county_code": "6081.0",
+      "applications": 930,
+      "approval_rate": 0.921505376344086,
+      "median_income": 349.0,
+      "median_loan": 1095000.0,
+      "median_dti": 39.0,
+      "median_ltv": 75.0
+    },
+    {
+      "county_code": "6095.0",
+      "applications": 912,
+      "approval_rate": 0.9100877192982456,
+      "median_income": 151.0,
+      "median_loan": 525000.0,
+      "median_dti": 44.0,
+      "median_ltv": 90.0
+    },
+    {
+      "county_code": "6075.0",
+      "applications": 844,
+      "approval_rate": 0.9383886255924171,
+      "median_income": 300.0,
+      "median_loan": 895000.0,
+      "median_dti": 38.0,
+      "median_ltv": 75.0
+    },
+    {
+      "county_code": "6097.0",
+      "applications": 838,
+      "approval_rate": 0.9451073985680191,
+      "median_income": 168.0,
+      "median_loan": 575000.0,
+      "median_dti": 42.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6107.0",
+      "applications": 780,
+      "approval_rate": 0.9256410256410257,
+      "median_income": 100.0,
+      "median_loan": 360000.0,
+      "median_dti": 44.0,
+      "median_ltv": 96.5
+    },
+    {
+      "county_code": "6017.0",
+      "applications": 515,
+      "approval_rate": 0.9145631067961165,
+      "median_income": 154.0,
+      "median_loan": 475000.0,
+      "median_dti": 42.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6039.0",
+      "applications": 485,
+      "approval_rate": 0.8865979381443299,
+      "median_income": 120.0,
+      "median_loan": 415000.0,
+      "median_dti": 45.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6083.0",
+      "applications": 465,
+      "approval_rate": 0.8731182795698925,
+      "median_income": 162.0,
+      "median_loan": 605000.0,
+      "median_dti": 44.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6007.0",
+      "applications": 436,
+      "approval_rate": 0.8876146788990825,
+      "median_income": 107.0,
+      "median_loan": 315000.0,
+      "median_dti": 40.0,
+      "median_ltv": 90.0
+    },
+    {
+      "county_code": "6079.0",
+      "applications": 417,
+      "approval_rate": 0.9256594724220624,
+      "median_income": 181.5,
+      "median_loan": 605000.0,
+      "median_dti": 42.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6047.0",
+      "applications": 414,
+      "approval_rate": 0.9033816425120773,
+      "median_income": 108.0,
+      "median_loan": 395000.0,
+      "median_dti": 44.0,
+      "median_ltv": 96.5
+    },
+    {
+      "county_code": "6089.0",
+      "applications": 390,
+      "approval_rate": 0.9256410256410257,
+      "median_income": 99.0,
+      "median_loan": 315000.0,
+      "median_dti": 42.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6053.0",
+      "applications": 379,
+      "approval_rate": 0.8707124010554089,
+      "median_income": 173.0,
+      "median_loan": 615000.0,
+      "median_dti": 43.5,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6113.0",
+      "applications": 346,
+      "approval_rate": 0.9046242774566474,
+      "median_income": 141.0,
+      "median_loan": 465000.0,
+      "median_dti": 41.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6041.0",
+      "applications": 338,
+      "approval_rate": 0.9408284023668639,
+      "median_income": 299.0,
+      "median_loan": 940000.0,
+      "median_dti": 40.0,
+      "median_ltv": 76.93950000000001
+    },
+    {
+      "county_code": "6031.0",
+      "applications": 313,
+      "approval_rate": 0.9456869009584664,
+      "median_income": 101.0,
+      "median_loan": 365000.0,
+      "median_dti": 44.0,
+      "median_ltv": 96.5
+    },
+    {
+      "county_code": "6087.0",
+      "applications": 305,
+      "approval_rate": 0.9245901639344263,
+      "median_income": 208.5,
+      "median_loan": 725000.0,
+      "median_dti": 41.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6115.0",
+      "applications": 296,
+      "approval_rate": 0.9425675675675675,
+      "median_income": 108.0,
+      "median_loan": 420000.0,
+      "median_dti": 46.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6057.0",
+      "applications": 246,
+      "approval_rate": 0.926829268292683,
+      "median_income": 142.0,
+      "median_loan": 415000.0,
+      "median_dti": 42.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6023.0",
+      "applications": 209,
+      "approval_rate": 0.9043062200956937,
+      "median_income": 109.5,
+      "median_loan": 345000.0,
+      "median_dti": 42.0,
+      "median_ltv": 90.0
+    },
+    {
+      "county_code": "6025.0",
+      "applications": 193,
+      "approval_rate": 0.8652849740932642,
+      "median_income": 102.5,
+      "median_loan": 365000.0,
+      "median_dti": 45.0,
+      "median_ltv": 96.5
+    },
+    {
+      "county_code": "6055.0",
+      "applications": 188,
+      "approval_rate": 0.9148936170212766,
+      "median_income": 166.5,
+      "median_loan": 555000.0,
+      "median_dti": 40.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6101.0",
+      "applications": 171,
+      "approval_rate": 0.8888888888888888,
+      "median_income": 112.5,
+      "median_loan": 385000.0,
+      "median_dti": 42.0,
+      "median_ltv": 89.989
+    },
+    {
+      "county_code": "6033.0",
+      "applications": 145,
+      "approval_rate": 0.8896551724137931,
+      "median_income": 101.0,
+      "median_loan": 275000.0,
+      "median_dti": 42.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6109.0",
+      "applications": 135,
+      "approval_rate": 0.9259259259259259,
+      "median_income": 103.0,
+      "median_loan": 305000.0,
+      "median_dti": 41.0,
+      "median_ltv": 91.86
+    },
+    {
+      "county_code": "6005.0",
+      "applications": 112,
+      "approval_rate": 0.9107142857142857,
+      "median_income": 118.0,
+      "median_loan": 335000.0,
+      "median_dti": 40.0,
+      "median_ltv": 85.0
+    },
+    {
+      "county_code": "6009.0",
+      "applications": 110,
+      "approval_rate": 0.8818181818181818,
+      "median_income": 111.0,
+      "median_loan": 335000.0,
+      "median_dti": 41.0,
+      "median_ltv": 90.0
+    },
+    {
+      "county_code": "6069.0",
+      "applications": 108,
+      "approval_rate": 0.9444444444444444,
+      "median_income": 184.0,
+      "median_loan": 685000.0,
+      "median_dti": 43.0,
+      "median_ltv": 88.667
+    },
+    {
+      "county_code": "6045.0",
+      "applications": 96,
+      "approval_rate": 0.9583333333333334,
+      "median_income": 119.0,
+      "median_loan": 375000.0,
+      "median_dti": 41.5,
+      "median_ltv": 82.805
+    },
+    {
+      "county_code": "6103.0",
+      "applications": 85,
+      "approval_rate": 0.9294117647058824,
+      "median_income": 104.0,
+      "median_loan": 305000.0,
+      "median_dti": 41.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6093.0",
+      "applications": 85,
+      "approval_rate": 0.8941176470588236,
+      "median_income": 99.0,
+      "median_loan": 265000.0,
+      "median_dti": 39.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "Missing",
+      "applications": 59,
+      "approval_rate": 0.9661016949152542,
+      "median_income": 220.0,
+      "median_loan": 685000.0,
+      "median_dti": 39.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6015.0",
+      "applications": 50,
+      "approval_rate": 0.78,
+      "median_income": 103.0,
+      "median_loan": 290000.0,
+      "median_dti": 43.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6035.0",
+      "applications": 49,
+      "approval_rate": 0.9183673469387755,
+      "median_income": 87.0,
+      "median_loan": 215000.0,
+      "median_dti": 39.0,
+      "median_ltv": 95.5
+    },
+    {
+      "county_code": "6063.0",
+      "applications": 40,
+      "approval_rate": 0.875,
+      "median_income": 107.5,
+      "median_loan": 325000.0,
+      "median_dti": 42.0,
+      "median_ltv": 87.53999999999999
+    },
+    {
+      "county_code": "6021.0",
+      "applications": 36,
+      "approval_rate": 0.9444444444444444,
+      "median_income": 103.5,
+      "median_loan": 295000.0,
+      "median_dti": 42.0,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6027.0",
+      "applications": 34,
+      "approval_rate": 0.9411764705882353,
+      "median_income": 116.0,
+      "median_loan": 230000.0,
+      "median_dti": 40.0,
+      "median_ltv": 80.0
+    },
+    {
+      "county_code": "6043.0",
+      "applications": 32,
+      "approval_rate": 0.875,
+      "median_income": 119.0,
+      "median_loan": 315000.0,
+      "median_dti": 43.5,
+      "median_ltv": 95.0
+    },
+    {
+      "county_code": "6051.0",
+      "applications": 24,
+      "approval_rate": 0.875,
+      "median_income": 144.5,
+      "median_loan": 380000.0,
+      "median_dti": 36.0,
+      "median_ltv": 82.5
+    },
+    {
+      "county_code": "6011.0",
+      "applications": 22,
+      "approval_rate": 0.9090909090909091,
+      "median_income": 140.5,
+      "median_loan": 340000.0,
+      "median_dti": 42.0,
+      "median_ltv": 87.5
+    },
+    {
+      "county_code": "6105.0",
+      "applications": 15,
+      "approval_rate": 0.9333333333333333,
+      "median_income": 95.0,
+      "median_loan": 295000.0,
+      "median_dti": 39.0,
+      "median_ltv": 96.5
+    },
+    {
+      "county_code": "6049.0",
+      "applications": 4,
+      "approval_rate": 1.0,
+      "median_income": 131.0,
+      "median_loan": 255000.0,
+      "median_dti": 34.5,
+      "median_ltv": 90.0
+    },
+    {
+      "county_code": "6091.0",
+      "applications": 3,
+      "approval_rate": 1.0,
+      "median_income": 91.0,
+      "median_loan": 205000.0,
+      "median_dti": 42.0,
+      "median_ltv": 66.667
+    },
+    {
+      "county_code": "6003.0",
+      "applications": 1,
+      "approval_rate": 1.0,
+      "median_income": 149.0,
+      "median_loan": 595000.0,
+      "median_dti": 44.0,
+      "median_ltv": 80.0
+    }
+  ],
+  "county_diagnostics": [
+    {
+      "county_code": "6039.0",
+      "test_rows": 107,
+      "actual_approval_rate": 0.9065420560747663,
+      "predicted_approval_rate": 0.8882134759398265,
+      "error_rate": 0.32710280373831774,
+      "median_income": 120.5,
+      "median_loan": 415000.0
+    },
+    {
+      "county_code": "6029.0",
+      "test_rows": 353,
+      "actual_approval_rate": 0.8753541076487252,
+      "predicted_approval_rate": 0.8930095762394306,
+      "error_rate": 0.3002832861189802,
+      "median_income": 101.0,
+      "median_loan": 345000.0
+    },
+    {
+      "county_code": "6065.0",
+      "test_rows": 1131,
+      "actual_approval_rate": 0.883289124668435,
+      "predicted_approval_rate": 0.8818648206275929,
+      "error_rate": 0.2891246684350133,
+      "median_income": 134.0,
+      "median_loan": 515000.0
+    },
+    {
+      "county_code": "6073.0",
+      "test_rows": 1051,
+      "actual_approval_rate": 0.8924833491912464,
+      "predicted_approval_rate": 0.8998270739086122,
+      "error_rate": 0.25689819219790677,
+      "median_income": 187.0,
+      "median_loan": 685000.0
+    },
+    {
+      "county_code": "6037.0",
+      "test_rows": 1843,
+      "actual_approval_rate": 0.8817145957677699,
+      "predicted_approval_rate": 0.8774776380191791,
+      "error_rate": 0.24525230602278894,
+      "median_income": 190.0,
+      "median_loan": 685000.0
+    },
+    {
+      "county_code": "6019.0",
+      "test_rows": 298,
+      "actual_approval_rate": 0.9093959731543624,
+      "predicted_approval_rate": 0.9094245984850314,
+      "error_rate": 0.24496644295302014,
+      "median_income": 110.0,
+      "median_loan": 395000.0
+    },
+    {
+      "county_code": "6071.0",
+      "test_rows": 810,
+      "actual_approval_rate": 0.8925925925925926,
+      "predicted_approval_rate": 0.8892263234121563,
+      "error_rate": 0.24074074074074073,
+      "median_income": 127.0,
+      "median_loan": 445000.0
+    },
+    {
+      "county_code": "6111.0",
+      "test_rows": 252,
+      "actual_approval_rate": 0.9087301587301587,
+      "predicted_approval_rate": 0.9135521070233413,
+      "error_rate": 0.21825396825396826,
+      "median_income": 182.0,
+      "median_loan": 645000.0
+    },
+    {
+      "county_code": "6053.0",
+      "test_rows": 78,
+      "actual_approval_rate": 0.8589743589743589,
+      "predicted_approval_rate": 0.8363382042600558,
+      "error_rate": 0.21794871794871795,
+      "median_income": 169.5,
+      "median_loan": 590000.0
+    },
+    {
+      "county_code": "6047.0",
+      "test_rows": 80,
+      "actual_approval_rate": 0.9125,
+      "predicted_approval_rate": 0.9107454023323953,
+      "error_rate": 0.2125,
+      "median_income": 105.5,
+      "median_loan": 385000.0
+    },
+    {
+      "county_code": "6099.0",
+      "test_rows": 199,
+      "actual_approval_rate": 0.9045226130653267,
+      "predicted_approval_rate": 0.8944860612177968,
+      "error_rate": 0.20603015075376885,
+      "median_income": 108.0,
+      "median_loan": 415000.0
+    },
+    {
+      "county_code": "6031.0",
+      "test_rows": 68,
+      "actual_approval_rate": 0.9264705882352942,
+      "predicted_approval_rate": 0.9267479198820451,
+      "error_rate": 0.20588235294117646,
+      "median_income": 97.0,
+      "median_loan": 365000.0
+    },
+    {
+      "county_code": "6007.0",
+      "test_rows": 88,
+      "actual_approval_rate": 0.8522727272727273,
+      "predicted_approval_rate": 0.9014416662129489,
+      "error_rate": 0.20454545454545456,
+      "median_income": 114.0,
+      "median_loan": 330000.0
+    },
+    {
+      "county_code": "6059.0",
+      "test_rows": 726,
+      "actual_approval_rate": 0.8870523415977961,
+      "predicted_approval_rate": 0.9045410214233168,
+      "error_rate": 0.20110192837465565,
+      "median_income": 234.0,
+      "median_loan": 800000.0
+    },
+    {
+      "county_code": "6083.0",
+      "test_rows": 93,
+      "actual_approval_rate": 0.8924731182795699,
+      "predicted_approval_rate": 0.8451398413988852,
+      "error_rate": 0.1935483870967742,
+      "median_income": 149.0,
+      "median_loan": 585000.0
+    },
+    {
+      "county_code": "6013.0",
+      "test_rows": 411,
+      "actual_approval_rate": 0.9294403892944039,
+      "predicted_approval_rate": 0.9140817540224161,
+      "error_rate": 0.1873479318734793,
+      "median_income": 195.5,
+      "median_loan": 635000.0
+    },
+    {
+      "county_code": "6107.0",
+      "test_rows": 143,
+      "actual_approval_rate": 0.8671328671328671,
+      "predicted_approval_rate": 0.9067087120838933,
+      "error_rate": 0.18181818181818182,
+      "median_income": 93.0,
+      "median_loan": 365000.0
+    },
+    {
+      "county_code": "6115.0",
+      "test_rows": 58,
+      "actual_approval_rate": 1.0,
+      "predicted_approval_rate": 0.9427823033826105,
+      "error_rate": 0.1724137931034483,
+      "median_income": 113.0,
+      "median_loan": 430000.0
+    },
+    {
+      "county_code": "6001.0",
+      "test_rows": 430,
+      "actual_approval_rate": 0.9186046511627907,
+      "predicted_approval_rate": 0.9181064419448376,
+      "error_rate": 0.1558139534883721,
+      "median_income": 231.0,
+      "median_loan": 735000.0
+    },
+    {
+      "county_code": "6095.0",
+      "test_rows": 201,
+      "actual_approval_rate": 0.9154228855721394,
+      "predicted_approval_rate": 0.9060218462081098,
+      "error_rate": 0.15422885572139303,
+      "median_income": 157.5,
+      "median_loan": 535000.0
+    },
+    {
+      "county_code": "6077.0",
+      "test_rows": 339,
+      "actual_approval_rate": 0.9203539823008849,
+      "predicted_approval_rate": 0.9263112546771677,
+      "error_rate": 0.14454277286135694,
+      "median_income": 138.5,
+      "median_loan": 485000.0
+    },
+    {
+      "county_code": "6087.0",
+      "test_rows": 65,
+      "actual_approval_rate": 0.8923076923076924,
+      "predicted_approval_rate": 0.9254780842707707,
+      "error_rate": 0.13846153846153847,
+      "median_income": 209.0,
+      "median_loan": 735000.0
+    },
+    {
+      "county_code": "6075.0",
+      "test_rows": 175,
+      "actual_approval_rate": 0.9314285714285714,
+      "predicted_approval_rate": 0.9460125195980073,
+      "error_rate": 0.13714285714285715,
+      "median_income": 341.0,
+      "median_loan": 1015000.0
+    },
+    {
+      "county_code": "6081.0",
+      "test_rows": 197,
+      "actual_approval_rate": 0.9238578680203046,
+      "predicted_approval_rate": 0.9307264196993735,
+      "error_rate": 0.13705583756345177,
+      "median_income": 334.0,
+      "median_loan": 1185000.0
+    },
+    {
+      "county_code": "6067.0",
+      "test_rows": 635,
+      "actual_approval_rate": 0.925984251968504,
+      "predicted_approval_rate": 0.9148426287990855,
+      "error_rate": 0.13385826771653545,
+      "median_income": 126.0,
+      "median_loan": 445000.0
+    },
+    {
+      "county_code": "6089.0",
+      "test_rows": 61,
+      "actual_approval_rate": 0.9672131147540983,
+      "predicted_approval_rate": 0.9359235855155303,
+      "error_rate": 0.13114754098360656,
+      "median_income": 91.5,
+      "median_loan": 315000.0
+    },
+    {
+      "county_code": "6085.0",
+      "test_rows": 518,
+      "actual_approval_rate": 0.9111969111969112,
+      "predicted_approval_rate": 0.9274782131652575,
+      "error_rate": 0.1138996138996139,
+      "median_income": 302.0,
+      "median_loan": 1045000.0
+    },
+    {
+      "county_code": "6079.0",
+      "test_rows": 80,
+      "actual_approval_rate": 0.9125,
+      "predicted_approval_rate": 0.9278238553553819,
+      "error_rate": 0.1125,
+      "median_income": 194.0,
+      "median_loan": 705000.0
+    },
+    {
+      "county_code": "6017.0",
+      "test_rows": 96,
+      "actual_approval_rate": 0.9375,
+      "predicted_approval_rate": 0.9342544598815342,
+      "error_rate": 0.10416666666666667,
+      "median_income": 163.0,
+      "median_loan": 445000.0
+    },
+    {
+      "county_code": "6041.0",
+      "test_rows": 59,
+      "actual_approval_rate": 0.9491525423728814,
+      "predicted_approval_rate": 0.954819614730649,
+      "error_rate": 0.1016949152542373,
+      "median_income": 338.0,
+      "median_loan": 1005000.0
+    },
+    {
+      "county_code": "6061.0",
+      "test_rows": 269,
+      "actual_approval_rate": 0.929368029739777,
+      "predicted_approval_rate": 0.9482217727429805,
+      "error_rate": 0.09293680297397769,
+      "median_income": 148.5,
+      "median_loan": 495000.0
+    },
+    {
+      "county_code": "6113.0",
+      "test_rows": 71,
+      "actual_approval_rate": 0.8732394366197183,
+      "predicted_approval_rate": 0.8595536048983184,
+      "error_rate": 0.08450704225352113,
+      "median_income": 143.5,
+      "median_loan": 465000.0
+    },
+    {
+      "county_code": "6097.0",
+      "test_rows": 163,
+      "actual_approval_rate": 0.9631901840490797,
+      "predicted_approval_rate": 0.9463746263845566,
+      "error_rate": 0.07975460122699386,
+      "median_income": 169.0,
+      "median_loan": 575000.0
+    }
+  ],
+  "income_diagnostics": [
+    {
+      "income_group": "(-799.001, 100.0]",
+      "test_rows": 2341,
+      "actual_approval_rate": 0.8244340025630073,
+      "predicted_approval_rate": 0.8234521834253755,
+      "error_rate": 0.32934643314822726
+    },
+    {
+      "income_group": "(100.0, 138.0]",
+      "test_rows": 2272,
+      "actual_approval_rate": 0.8974471830985915,
+      "predicted_approval_rate": 0.8906623724238081,
+      "error_rate": 0.2601232394366197
+    },
+    {
+      "income_group": "(138.0, 188.0]",
+      "test_rows": 2279,
+      "actual_approval_rate": 0.9267222465993857,
+      "predicted_approval_rate": 0.9210186409958102,
+      "error_rate": 0.20666959192628345
+    },
+    {
+      "income_group": "(188.0, 292.0]",
+      "test_rows": 2295,
+      "actual_approval_rate": 0.9259259259259259,
+      "predicted_approval_rate": 0.9348567577878374,
+      "error_rate": 0.1437908496732026
+    },
+    {
+      "income_group": "(292.0, 44041.0]",
+      "test_rows": 2294,
+      "actual_approval_rate": 0.9341761115954664,
+      "predicted_approval_rate": 0.9407488490311134,
+      "error_rate": 0.1011333914559721
+    }
+  ],
+  "mutual_information": [
+    {
+      "feature": "dti_numeric",
+      "mutual_information": 0.03308342200186032
+    },
+    {
+      "feature": "loan_to_income",
+      "mutual_information": 0.020509153213690956
+    },
+    {
+      "feature": "income_vs_county_median",
+      "mutual_information": 0.020013309535665824
+    },
+    {
+      "feature": "loan_term",
+      "mutual_information": 0.018826317536515758
+    },
+    {
+      "feature": "log_income",
+      "mutual_information": 0.015222793189061612
+    },
+    {
+      "feature": "log_property_value",
+      "mutual_information": 0.012940578638088729
+    },
+    {
+      "feature": "income_decile",
+      "mutual_information": 0.012777571158896661
+    },
+    {
+      "feature": "high_dti_flag",
+      "mutual_information": 0.012632061843645959
+    },
+    {
+      "feature": "loan_vs_county_median",
+      "mutual_information": 0.01191684552323724
+    },
+    {
+      "feature": "property_value",
+      "mutual_information": 0.01156288768293079
+    },
+    {
+      "feature": "income",
+      "mutual_information": 0.011267224173061807
+    },
+    {
+      "feature": "down_payment_rate_proxy",
+      "mutual_information": 0.0106257648174648
+    },
+    {
+      "feature": "loan_amount_decile",
+      "mutual_information": 0.007462543022277224
+    },
+    {
+      "feature": "loan_amount",
+      "mutual_information": 0.007140890863805538
+    },
+    {
+      "feature": "log_loan_amount",
+      "mutual_information": 0.006204288035029704
+    },
+    {
+      "feature": "combined_loan_to_value_ratio",
+      "mutual_information": 0.005726709109664663
+    },
+    {
+      "feature": "county_median_loan",
+      "mutual_information": 0.00278382686284262
+    },
+    {
+      "feature": "high_ltv_flag",
+      "mutual_information": 0.002569008478517709
+    },
+    {
+      "feature": "county_median_income",
+      "mutual_information": 0.0017751701254269392
+    },
+    {
+      "feature": "county_applications",
+      "mutual_information": 0.0017114831160205402
+    },
+    {
+      "feature": "jumbo_proxy_flag",
+      "mutual_information": 0.00043887453921831465
+    }
+  ],
+  "risk_surface": [
+    {
+      "dti_band": "(-0.001, 30.0]",
+      "(-0.001, 70.0]": 0.9484621778886118,
+      "(70.0, 80.0]": 0.9478632478632478,
+      "(80.0, 90.0]": 0.9207792207792208,
+      "(90.0, 97.0]": 0.872113676731794,
+      "(97.0, 150.0]": 0.8571428571428571
+    },
+    {
+      "dti_band": "(30.0, 36.0]",
+      "(-0.001, 70.0]": 0.9621672115833723,
+      "(70.0, 80.0]": 0.9543020349875044,
+      "(80.0, 90.0]": 0.9436379163108455,
+      "(90.0, 97.0]": 0.9172113289760349,
+      "(97.0, 150.0]": 0.9170616113744076
+    },
+    {
+      "dti_band": "(36.0, 43.0]",
+      "(-0.001, 70.0]": 0.9595394736842106,
+      "(70.0, 80.0]": 0.9567327986492191,
+      "(80.0, 90.0]": 0.9443359375,
+      "(90.0, 97.0]": 0.9275629220380601,
+      "(97.0, 150.0]": 0.9402220324508966
+    },
+    {
+      "dti_band": "(43.0, 50.0]",
+      "(-0.001, 70.0]": 0.9513417870834562,
+      "(70.0, 80.0]": 0.9497497914929107,
+      "(80.0, 90.0]": 0.9283018867924528,
+      "(90.0, 97.0]": 0.937192118226601,
+      "(97.0, 150.0]": 0.9138141809290954
+    },
+    {
+      "dti_band": "(50.0, 100.0]",
+      "(-0.001, 70.0]": 0.4823348694316436,
+      "(70.0, 80.0]": 0.43472906403940886,
+      "(80.0, 90.0]": 0.5968790637191157,
+      "(90.0, 97.0]": 0.780384919588716,
+      "(97.0, 150.0]": 0.833666001330672
+    }
+  ]
+}
