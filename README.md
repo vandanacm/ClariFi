@@ -2,6 +2,12 @@
 
 ClariFi is an AI-guided personal finance and mortgage readiness visual analytics system. It combines 18 interactive D3 visualizations with a calibrated XGBoost model trained on ~58,000 California HMDA mortgage applications, BLS Consumer Expenditure peer benchmarks, and LLM-powered explanations to help users understand their mortgage readiness before applying.
 
+## System Architecture
+
+Three-tier flow: React + D3 dashboard (linked views), FastAPI backend (scoring, BLS, LLM), and data layer (HMDA, XGBoost artifact, MongoDB or local JSON fallback).
+
+![ClariFi system architecture](client/public/clarifi_system_architecture.png)
+
 ## Setup Instructions
 
 ### Prerequisites
