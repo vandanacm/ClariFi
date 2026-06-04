@@ -218,6 +218,4 @@ ClariFi/
 
 - The XGBoost model is trained on California HMDA data only — predictions may not generalize to other states
 - The readiness score is for educational purposes only and is not a credit decision or financial advice
-- Historical HMDA data may reflect systemic lending biases
 - If OpenRouter API keys are not set, the AI explainer falls back to rule-based templates
-- The large bundle size (~1.2 MB) is due to D3 + us-atlas topology data; code splitting could reduce initial load
