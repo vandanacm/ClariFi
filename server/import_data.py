@@ -43,8 +43,11 @@ def initial_store() -> dict[str, Any]:
 
 def load_local_store() -> dict[str, Any]:
     if LOCAL_STORE_PATH.exists():
-        return read_json(LOCAL_STORE_PATH)
+        data = read_json(LOCAL_STORE_PATH)
+        if isinstance(data, dict) and "users" in data:
+            return data
     store = initial_store()
+    LOCAL_STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
     with LOCAL_STORE_PATH.open("w", encoding="utf-8") as f:
         json.dump(store, f)
     return store

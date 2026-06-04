@@ -33,30 +33,17 @@ pip install -r requirements.txt
 
 **4. Configure environment variables**
 
-Copy the example `.env` file in the project root and fill in your keys:
+The `.env.example` in the project root already contains working defaults (MongoDB Atlas URI, OpenRouter key placeholder). Copy it if you don't have a `.env` yet:
 
 ```
 cp ../.env.example ../.env
 ```
 
-Edit `../.env` with your values:
+The app connects to MongoDB Atlas by default (open to all IPs). If Atlas is unreachable, it automatically falls back to a local JSON file (`client/public/data/local_store.json`).
 
-```
-OPENROUTER_API_KEY=your_openrouter_key_here   # Required for AI explanations
-MONGODB_URI=                                    # Optional: leave blank to use local JSON store
-```
+If you want AI-powered explanations, add your OpenRouter API key in `.env`. Without it, the app still works using rule-based template explanations.
 
-If you do not have an OpenRouter API key, the app will still work — it falls back to rule-based template explanations.
-
-**5. (Optional) Set up MongoDB**
-
-By default, ClariFi stores user data in a local JSON file (`client/public/data/local_store.json`). If you want to use MongoDB Atlas instead:
-
-- Create a free cluster at [MongoDB Atlas](https://cloud.mongodb.com/)
-- Add your IP to Network Access
-- Set `MONGODB_URI` in `.env` to your connection string
-
-**6. Verify the XGBoost model file is present**
+**5. Verify the XGBoost model file is present**
 
 The pre-trained model should already be included at:
 
@@ -66,7 +53,7 @@ client/public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib
 
 If this file is missing, the app will still run but will show "Model unavailable" instead of real XGBoost predictions. You can regenerate it by running the training notebook in `notebooks/`.
 
-**7. Start the FastAPI server**
+**6. Start the FastAPI server**
 
 ```
 uvicorn main:app --host 127.0.0.1 --port 8001
@@ -101,6 +88,26 @@ npm run dev
 Visit: http://127.0.0.1:5173
 
 The frontend proxies all `/api/*` requests to the backend server on port 8001.
+
+### Test Users and Sample Data
+
+You can explore the app without registering by clicking **"Explore demo →"** on the landing page. This uses a built-in demo account.
+
+To test with different personas, use the pre-configured test users below. All share the password `Testpass123`:
+
+| Name | Email | Persona | Target Market | Transaction CSV |
+|---|---|---|---|---|
+| Sofia Chen | `sofia.sf@clarifi.test` | High-income SF buyer | Alameda | `sf_high_income_transactions.csv` |
+| Arjun Patel | `arjun.bay@clarifi.test` | Median-plus Bay buyer | Alameda | `bay_median_plus_transactions.csv` |
+| Maya Gomez | `maya.sac@clarifi.test` | Mid-income Sacramento buyer | Sacramento | `sacramento_mid_income_transactions.csv` |
+| Diego Rivera | `diego.inland@clarifi.test` | Lower-income Inland renter | Los Angeles | `inland_lower_income_transactions.csv` |
+
+**Steps to test a persona:**
+
+1. Register using the email and password from the table above
+2. After sign-in, upload the matching CSV from `server/data/user_upload_pack/`
+3. The sliders will auto-fill from the uploaded transaction data
+4. Explore the dashboard — each persona produces a different readiness score and risk profile
 
 ## Project Structure
 

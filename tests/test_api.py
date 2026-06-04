@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from api.main import MODEL_PATH, ScenarioInput, app, model_score, scenario_from_question, summarize_transactions
+from main import MODEL_PATH, app, model_score, scenario_from_question
+from data_scheme import ScenarioInput
+from import_data import summarize_transactions
 
 client = TestClient(app)
 
@@ -54,7 +56,7 @@ def test_health_reports_hmda_meta() -> None:
 
 @pytest.mark.skipif(not MODEL_PATH.exists(), reason="joblib artifact not present")
 def test_model_score_when_artifact_present() -> None:
-    import api.main as main_module
+    import main as main_module
 
     assert main_module.load_model_cache() is True
     score = model_score(ScenarioInput())
@@ -68,7 +70,7 @@ def test_model_score_when_artifact_present() -> None:
 
 @pytest.mark.skipif(not MODEL_PATH.exists(), reason="joblib artifact not present")
 def test_score_endpoint_returns_probability() -> None:
-    import api.main as main_module
+    import main as main_module
 
     main_module.load_model_cache()
     response = client.post("/api/mortgage/score", json=ScenarioInput().model_dump())
@@ -145,7 +147,6 @@ def test_score_includes_drivers() -> None:
 
 
 def test_counterfactual_structure() -> None:
-    # High DTI scenario should trigger a counterfactual suggestion
     payload = ScenarioInput(market="Los Angeles", income=6000, debt=3000, savings=40000, price=750000).model_dump()
     resp = client.post("/api/mortgage/score", json=payload)
     assert resp.status_code == 200
@@ -158,3 +159,22 @@ def test_counterfactual_structure() -> None:
         assert "newApproval" in cf
         assert "newScore" in cf
         assert "delta" in cf
+
+
+def test_risk_grid_endpoint() -> None:
+    payload = ScenarioInput().model_dump()
+    resp = client.post("/api/risk-grid", json=payload)
+    assert resp.status_code == 200
+    grid = resp.json()
+    assert isinstance(grid, list)
+
+
+def test_agent_explain_returns_annotation() -> None:
+    payload = {"question": "Why was I denied?", "scenario": ScenarioInput().model_dump()}
+    resp = client.post("/api/agent/explain", json=payload)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "answer" in body
+    assert "highlight" in body
+    assert "annotation" in body
+    assert "section" in body["annotation"]

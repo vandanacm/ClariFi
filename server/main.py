@@ -85,7 +85,7 @@ MODEL_PATH = PROJECT_ROOT / "client" / "public" / "data" / "model_outputs" / "hm
 MONGODB_URI = (os.getenv("MONGODB_URI") or "").strip() or None
 MONGODB_DB = os.getenv("MONGODB_DB", "clarifi")
 MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "app_store")
-MONGODB_FALLBACK_LOCAL = os.getenv("MONGODB_FALLBACK_LOCAL", "false").lower() in ("1", "true", "yes")
+MONGODB_FALLBACK_LOCAL = os.getenv("MONGODB_FALLBACK_LOCAL", "true").lower() in ("1", "true", "yes")
 
 app = FastAPI(title="ClariFi API", version="0.3.0")
 
