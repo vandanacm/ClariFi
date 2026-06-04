@@ -113,100 +113,41 @@ To test with different personas, use the pre-configured test users below. All sh
 
 ```
 ClariFi/
-├── client/                          # React + TypeScript + Vite frontend
-│   ├── public/
-│   │   ├── data/                    # Static JSON datasets
-│   │   │   ├── bls_benchmarks.json  # BLS peer spending benchmarks
-│   │   │   ├── hmda_processed.json  # Processed HMDA scatter/county data
-│   │   │   ├── model_report.json    # XGBoost training metrics
-│   │   │   ├── local_store.json     # Local user/session storage
-│   │   │   └── model_outputs/       # XGBoost .joblib model + SHAP artifacts
-│   │   └── logo.png
-│   ├── src/
-│   │   ├── components/              # 10 D3 chart components (one per file)
-│   │   │   ├── CashflowChart.tsx    # Monthly cashflow waterfall
-│   │   │   ├── ExpenseDonut.tsx     # Budget donut with hover/click
-│   │   │   ├── HmdaScatter.tsx      # Income vs. loan scatter plot
-│   │   │   ├── ChoroplethMap.tsx    # California county approval map
-│   │   │   ├── IncomeHistogram.tsx  # Income distribution histogram
-│   │   │   ├── RiskSurface.tsx      # DTI × down-payment heatmap
-│   │   │   ├── BenchmarkBars.tsx    # User vs. BLS peer bars
-│   │   │   ├── CalibrationChart.tsx # Model calibration curve
-│   │   │   ├── ShapWaterfallChart.tsx # Feature impact waterfall
-│   │   │   ├── CountyCalibrationChart.tsx # Per-county fairness audit
-│   │   │   ├── chart-utils.ts       # Shared D3 utilities
-│   │   │   └── index.ts             # Barrel export
-│   │   ├── ReactApp.tsx             # Main dashboard with linked views
-│   │   ├── Landing.tsx              # Landing page
-│   │   ├── Login.tsx                # Auth modal (login/register)
-│   │   ├── Onboarding.tsx           # CSV upload onboarding flow
-│   │   ├── api.ts                   # API client (fetch wrapper)
-│   │   ├── types.ts                 # TypeScript type definitions
-│   │   ├── styles.css               # All application styles
-│   │   ├── main.tsx                 # React entry point
-│   │   └── vite-env.d.ts            # Vite type declarations
-│   ├── package.json                 # npm dependencies and scripts
-│   ├── vite.config.ts               # Vite config with API proxy
-│   ├── tsconfig.json                # TypeScript config
-│   ├── tsconfig.app.json
-│   └── tsconfig.node.json
-├── server/                          # FastAPI + Python backend
-│   ├── data/                        # Raw HMDA CSV and sample transactions
-│   │   ├── hmda_2025_sample_60000.csv
-│   │   └── user_upload_pack/        # Sample CSVs for different personas
-│   ├── main.py                      # API routes, ML scoring, LLM chain
-│   ├── data_scheme.py               # Pydantic request/response models
-│   ├── import_data.py               # Data loading, CSV parsing, storage
-│   ├── scenario_inference.py        # Feature engineering for XGBoost
-│   └── requirements.txt             # Python dependencies
-├── notebooks/                       # Jupyter notebook for model training
-│   └── hmda_2025_xgboost_shap.ipynb # XGBoost training + SHAP analysis
-├── scripts/                         # Data processing and utility scripts
-├── docs/                            # Presentations and documentation
-├── tests/                           # API tests (pytest)
-├── .env.example                     # Environment variable template
-├── .gitignore
-└── README.md
+├── client/                  # React 19 + TypeScript + Vite 6 frontend
+│   ├── public/data/         # Static JSON datasets + XGBoost .joblib model
+│   ├── src/components/      # 10 D3 chart components (one per file)
+│   ├── src/ReactApp.tsx     # Main dashboard with linked views
+│   ├── src/api.ts           # API client
+│   └── src/types.ts         # TypeScript type definitions
+├── server/                  # FastAPI + Python backend
+│   ├── data/                # HMDA CSV + sample transaction CSVs
+│   ├── main.py              # API routes, ML scoring, LLM chain
+│   ├── data_scheme.py       # Pydantic models
+│   ├── import_data.py       # Data loading and CSV parsing
+│   └── scenario_inference.py # Feature engineering for XGBoost
+├── notebooks/               # XGBoost training + SHAP analysis
+├── tests/                   # API tests (pytest)
+└── .env.example             # Environment variable template
 ```
 
-## System Architecture
+## Linked Views and Interactions
 
-```
-┌─────────────────────────┐   /api/* (HTTP/JSON)   ┌─────────────────────────┐   joblib / HTTP   ┌─────────────────────────┐
-│       FRONTEND          │ ──────────────────────► │        BACKEND          │ ────────────────► │       ML / AI           │
-│                         │                         │                         │                   │                         │
-│  React 19 · TypeScript  │                         │  FastAPI · Python       │                   │  XGBoost + LLM          │
-│  D3.js v7 · Vite 6      │                         │  Uvicorn · port 8001    │                   │  300 trees · depth 5    │
-│  10 interactive charts  │                         │  15 REST endpoints      │                   │  Isotonic calibration   │
-│  Dark / light theme     │ ◄──────── JSON ──────── │  JWT + JSON/MongoDB     │ ◄─ scores+text ── │  OpenRouter / Ollama    │
-│  JWT auth flow          │                         │  XGBoost inference      │                   │  SHAP approximations    │
-└─────────────────────────┘                         └─────────────────────────┘                   └─────────────────────────┘
-     10 charts · linked views                          15 endpoints · <50 ms                        AUC 0.804 · Brier 0.063
-```
-
-## Visualization Components
+The dashboard has 10 D3 visualizations connected through bidirectional brushing and shared state:
 
 | Chart | Type | Linked Interactions |
 |---|---|---|
-| CashflowChart | Waterfall | Hover pop-out with glow/dim animation |
-| ExpenseDonut | Donut | Hover/click expand slice, bidirectional with budget sliders |
-| IncomeHistogram | Stacked histogram | Crosshair brush → highlights matching scatter points |
-| ChoroplethMap | Choropleth map | Click county → filters scatter + histogram; highlights from scatter hover |
-| RiskSurface | Heatmap | Click cell → applies DTI/DP to scenario sliders; XGBoost model predictions |
-| HmdaScatter | Scatter plot | Hover point → highlights county on map; responds to histogram brush |
+| CashflowChart | Waterfall | Hover pop-out with glow/dim |
+| ExpenseDonut | Donut | Hover/click expand slice, bidirectional with sliders |
+| IncomeHistogram | Stacked histogram | Brush income band → highlights matching scatter points |
+| ChoroplethMap | Choropleth | Click county → filters scatter + histogram; highlights from scatter hover |
+| RiskSurface | Heatmap | Click cell → applies DTI/DP to sliders; real XGBoost predictions |
+| HmdaScatter | Scatter | Hover point → highlights county on map; responds to histogram brush |
 | BenchmarkBars | Horizontal bar | User spending vs. BLS peer comparison |
-| CalibrationChart | Line chart | Model predicted vs. actual approval rates |
+| CalibrationChart | Line | Model predicted vs. actual approval rates |
 | ShapWaterfallChart | Horizontal bar | Per-feature impact from model perturbation |
 | CountyCalibrationChart | Paired bar | Per-county fairness audit |
 
-## Linked View Interactions
-
-- **Histogram → Scatter**: Brushing an income band highlights matching points in the scatter plot
-- **Scatter → Map**: Hovering a scatter point highlights its county on the choropleth
-- **Map → Scatter + Histogram**: Clicking a county filters both charts to that county's data
-- **Risk Surface → Sliders**: Clicking a heatmap cell sets debt/savings to match the selected DTI/DP
-- **Agent → Charts**: AI explanations annotate specific chart elements (e.g., dim denied points, highlight risk surface position)
-- **Sliders → All views**: Every chart reacts when scenario parameters change (debounced 250ms)
+**Cross-chart links:** Histogram ↔ Scatter ↔ Map (bidirectional brushing), Risk Surface → Sliders (click-to-apply), Agent → Charts (AI annotations highlight specific chart elements), Sliders → All views (debounced 250ms).
 
 ## Core Datasets
 
