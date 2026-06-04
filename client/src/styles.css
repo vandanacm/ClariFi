@@ -2150,7 +2150,67 @@ input[type="range"] {
   width: 100%;
 }
 
-.readiness-viz-grid .rate-sensitivity-chart,
+.readiness-viz-grid .rate-sensitivity-chart {
+  max-height: 168px;
+  min-height: 140px;
+}
+
+.affordable-price-band-wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.affordable-price-band {
+  width: 100%;
+  height: auto;
+}
+
+.afford-price-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.afford-price-legend li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.afford-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.afford-legend-label {
+  color: var(--muted);
+}
+
+.afford-price-legend strong {
+  color: var(--ink);
+  font-size: 0.8rem;
+}
+
+.afford-price-footer {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.chart-empty-note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .readiness-viz-grid .savings-timeline {
   max-height: 160px;
 }

@@ -111,7 +111,7 @@ export function RateSensitivityChart({
       </g>
 
       <text fontSize="8" fill="var(--muted)" x={mg.left} y={height - 2}>
-        {remotePoints ? "XGBoost approval curve" : "Local estimate · start backend for model curve"}
+        Solid line = monthly payment · dashed = estimated approval if rates move ±2%
       </text>
     </svg>
   );

@@ -154,10 +154,11 @@ The dashboard has 18 D3 visualizations connected through bidirectional brushing 
 | DtiDecomposition | Stacked bar | Housing, debt, and total DTI vs. 36% guideline |
 | CounterfactualBar | Bar | Before/after approval from top model suggestion |
 | SavingsTimeline | Line | Months to 10%/20% down payment targets |
-| AffordablePriceBand | Range | Conservative vs. stretch price vs. target/median |
+| AffordablePriceBand | Range | Legend below bar — no overlapping price labels |
 | MonthlyPaymentStack | Stacked bar | P&I, tax, insurance, PMI breakdown |
 | LoanProgramChecklist | Checklist | Conventional / FHA / VA guideline pass-fail |
-| RateSensitivityChart | Dual line | Payment and approval vs. interest rate (local fallback + API) |
+| RateSensitivityChart | Dual line | Payment and approval vs. interest rate (±2% from 7.25%) |
+| GlobalFeatureImportance | Horizontal bar | Training-data feature weights (population-level) |
 | IncomeHistogram | Stacked histogram | Brush income band → highlights matching scatter points |
 | ChoroplethMap | Choropleth | Fixed 38–85% scale; click county → filters scatter + histogram |
 | RiskSurface | Heatmap | Click cell → applies DTI/DP to sliders; real XGBoost predictions |

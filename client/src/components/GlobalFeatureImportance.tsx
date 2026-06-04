@@ -72,9 +72,6 @@ export function GlobalFeatureImportance({ report }: { report: ModelReport }) {
           </g>
         );
       })}
-      <text fontSize="9" fill="var(--muted)" x={margin.left} y={height - 10}>
-        DTI and down payment drive most predictions · based on ~58k CA loans
-      </text>
     </svg>
   );
 }

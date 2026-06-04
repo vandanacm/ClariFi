@@ -13,34 +13,57 @@ export function CounterfactualBar({ score }: { score: ScoreResult }) {
 
   if (!cf) {
     return (
-      <svg viewBox={`0 0 ${width} 100`} className="counterfactual-bar" role="img">
-        <text fontSize="10" fill="var(--muted)" x={0} y={40}>
-          Adjust sliders to see the top model-backed improvement suggestion.
-        </text>
-      </svg>
+      <p className="chart-empty-note">
+        Tighten debt or raise down payment — the model will suggest your best next step here.
+      </p>
     );
   }
 
+  const barStart = 50;
+  const labelPad = 8;
+  const nowW = Math.max(scale(current), 4);
+  const afterW = Math.max(scale(after), 4);
+  const nowEnd = barStart + nowW;
+  const afterEnd = barStart + afterW;
+  const labelsOverlap = Math.abs(nowEnd - afterEnd) < 48;
+
   return (
-    <svg viewBox={`0 0 ${width} 120`} className="counterfactual-bar" role="img" aria-label="Before and after approval improvement">
-      <text fontSize="10" fontWeight="700" fill="var(--ink)" y={14}>
-        Top improvement
-      </text>
-      <text fontSize="9" fill="var(--muted)" y={28}>
+    <svg viewBox={`0 0 ${width} 108`} className="counterfactual-bar" role="img" aria-label="Before and after approval improvement">
+      <text fontSize="9" fill="var(--muted)" x={0} y={18}>
         {cf.suggestion}
       </text>
 
-      <text fontSize="9" fill="var(--muted)" x={0} y={58}>Now</text>
-      <rect x={50} y={44} width={Math.max(scale(current), 4)} height={barH} rx={4} fill="var(--muted)" opacity={0.5} />
-      <text fontSize="11" fontWeight="800" fill="var(--ink)" x={60 + scale(current)} y={66}>
+      <text fontSize="9" fill="var(--muted)" x={0} y={48}>Now</text>
+      <rect x={barStart} y={34} width={nowW} height={barH} rx={4} fill="var(--muted)" opacity={0.5} />
+      <text
+        fontSize="11"
+        fontWeight="800"
+        fill="var(--ink)"
+        x={labelsOverlap ? barStart + nowW + labelPad : barStart + nowW + labelPad}
+        y={56}
+        textAnchor="start"
+      >
         {pct.format(current)}
       </text>
 
-      <text fontSize="9" fill="var(--muted)" x={0} y={98}>After</text>
-      <rect x={50} y={84} width={Math.max(scale(after), 4)} height={barH} rx={4} fill="var(--teal)" opacity={0.85} />
-      <text fontSize="11" fontWeight="800" fill="var(--teal)" x={60 + scale(after)} y={106}>
-        {pct.format(after)} (+{pct.format(cf.delta)})
+      <text fontSize="9" fill="var(--muted)" x={0} y={92}>After</text>
+      <rect x={barStart} y={78} width={afterW} height={barH} rx={4} fill="var(--teal)" opacity={0.85} />
+      <text
+        fontSize="11"
+        fontWeight="800"
+        fill="var(--teal)"
+        x={labelsOverlap ? width - 8 : barStart + afterW + labelPad}
+        y={labelsOverlap ? 56 : 100}
+        textAnchor={labelsOverlap ? "end" : "start"}
+      >
+        {pct.format(after)}
+        {cf.delta > 0.005 ? ` (+${pct.format(cf.delta)})` : ""}
       </text>
+      {labelsOverlap && cf.delta <= 0.005 && (
+        <text fontSize="9" fill="var(--muted)" x={width - 8} y={100} textAnchor="end">
+          Little change at this step — try another slider
+        </text>
+      )}
     </svg>
   );
 }

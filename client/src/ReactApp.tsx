@@ -416,7 +416,7 @@ function App() {
               <h2>{isModelScore(score) && score.score != null ? classForScore(score.score) : "Model score pending"}</h2>
               <p>{scoreNarrative(score)}</p>
               {!isModelScore(score) && score.message && <p className="panel-note model-unavailable-note" role="status">{score.message}</p>}
-              <p className="panel-note">The 0–100 score is the calibrated HMDA XGBoost approval probability for your scenario.</p>
+              <p className="panel-note">Your approval score from the calibrated HMDA XGBoost model for this scenario.</p>
             </div>
           </div>
           <div className="metric-grid">
@@ -432,7 +432,7 @@ function App() {
           <article className="finance-card expense-card">
             <div className="panel-header">
               <div><p className="panel-kicker">Budget mixer</p><h2>Tune your monthly budget</h2>
-                <p className="panel-note">Donut and sliders update cashflow, readiness metrics, and model score together.</p></div>
+                <p className="panel-note">Adjust the donut and sliders — cashflow, DTI, and your readiness score update together.</p></div>
               <strong className={`surplus-value ${score.monthlySurplus < 0 ? "negative" : ""}`}>{money.format(score.monthlySurplus)}</strong>
             </div>
             <div className="budget-layout">
@@ -466,7 +466,7 @@ function App() {
             <div className="panel-header">
               <div>
                 <p className="panel-kicker">D3 cashflow lens</p><h2>Where monthly income goes</h2>
-                <p className="panel-note">Linked to the budget mixer above — hover any bar for the exact amount.</p>
+                <p className="panel-note">Same budget as the mixer above — hover each bar for dollar amounts.</p>
               </div>
               <span className={`status-pill ${score.monthlySurplus < 0 ? "danger" : ""}`}>{score.monthlySurplus >= 0 ? "Positive buffer" : "Over budget"}</span>
             </div>
@@ -489,7 +489,7 @@ function App() {
           <article className="analysis-panel simulator-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">What-if simulator</p><h2>Adjust the buyer profile</h2>
-                <p className="panel-note">Main inputs for the whole dashboard. Every chart and score reacts to these sliders.</p></div>
+                <p className="panel-note">Income, debt, savings, and target price drive every chart on the page.</p></div>
               <span className="status-pill">Scenario synced</span>
             </div>
             <div className="slider-stack">
@@ -519,56 +519,56 @@ function App() {
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Lender guidelines</p><h2>Where you sit vs. common thresholds</h2>
-                <p className="panel-note">DTI and down payment zones used by many conventional lenders.</p></div>
+                <p className="panel-note">Typical lender targets for DTI and down payment — not a credit decision.</p></div>
             </div>
             <GuidelineGauges score={score} />
           </article>
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">DTI breakdown</p><h2>How income is allocated</h2>
-                <p className="panel-note">Housing, other debt, and total DTI vs. the 36% guideline.</p></div>
+                <p className="panel-note">How much of your paycheck goes to housing, other debt, and total DTI.</p></div>
             </div>
             <DtiDecomposition scenario={scenario} score={score} />
           </article>
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Top improvement</p><h2>Biggest approval lift</h2>
-                <p className="panel-note">Model-backed before/after if you apply the top counterfactual.</p></div>
+                <p className="panel-note">One model suggestion — what happens to approval if you make that change.</p></div>
             </div>
             <CounterfactualBar score={score} />
           </article>
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Savings path</p><h2>Timeline to down payment milestones</h2>
-                <p className="panel-note">Uses monthly surplus plus investing as your savings rate.</p></div>
+                <p className="panel-note">Months to reach 10% and 20% down if you save your surplus plus investing each month.</p></div>
             </div>
             <SavingsTimeline scenario={scenario} score={score} />
           </article>
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Affordability band</p><h2>Price range at your income</h2>
-                <p className="panel-note">Conservative (32% DTI) vs. stretch (36% DTI) vs. your target and market median.</p></div>
+                <p className="panel-note">Compares a conservative (32% DTI) and stretch (36% DTI) cap to your target and local median price.</p></div>
             </div>
             <AffordablePriceBand scenario={scenario} hmda={hmda} />
           </article>
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Housing cost stack</p><h2>Full monthly payment estimate</h2>
-                <p className="panel-note">Principal, tax, insurance, and PMI when LTV exceeds 80%.</p></div>
+                <p className="panel-note">Estimated P&amp;I, tax, insurance, and PMI (when down payment is under 20%).</p></div>
             </div>
             <MonthlyPaymentStack scenario={scenario} />
           </article>
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Loan programs</p><h2>Conventional, FHA, and VA checklist</h2>
-                <p className="panel-note">Quick pass/fail on down payment and DTI guidelines — not a credit decision.</p></div>
+                <p className="panel-note">Educational checklist for common programs — not a pre-approval.</p></div>
             </div>
             <LoanProgramChecklist score={score} />
           </article>
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Rate sensitivity</p><h2>Payment and approval vs. interest rate</h2>
-                <p className="panel-note">±2% from 7.25% base — works offline; backend adds XGBoost approval curve.</p></div>
+                <p className="panel-note">How a ±2% rate change affects monthly payment and estimated approval (7.25% baseline).</p></div>
             </div>
             <RateSensitivityChart scenario={scenario} score={score} />
           </article>
@@ -579,7 +579,7 @@ function App() {
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">HMDA approval by county</p><h2>Historical approval rate by county</h2>
-                <p className="panel-note">All 58 California counties. Color = HMDA approval rate on a fixed 38–85% scale. Click any county to filter the charts below.</p></div>
+                <p className="panel-note">Fixed color scale (38–85% approval). Click a county to filter the charts below.</p></div>
               <span className="status-pill muted">{hmda?.source.name ?? "Loading HMDA"}</span>
             </div>
             {hmda && <ChoroplethMap hmda={hmda} scenario={scenario} selectedCounty={selectedHmdaCounty} scatterBrushedCounty={scatterBrushedCounty} onCountySelect={setSelectedHmdaCounty} onMarketSelect={marketName => updateScenario("market", marketName)} />}
@@ -587,7 +587,7 @@ function App() {
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">HMDA borrower comparison</p><h2>Income vs. loan — {selectedHmdaCounty ?? scenario.market}</h2>
-                <p className="panel-note">Each dot is one past application. Teal = approved, pink = denied. Hover a point to highlight its county on the map.</p></div>
+                <p className="panel-note">Past applications in your market — hover a dot to highlight its county on the map.</p></div>
               <span className="status-pill">{market ? money.format(market.priceMedian) : "n/a"} median</span>
             </div>
             {selectedHmdaCounty && <button className="link-filter-btn" type="button" onClick={() => setSelectedHmdaCounty(null)}>Clear county filter · {selectedHmdaCounty}</button>}
@@ -598,7 +598,7 @@ function App() {
           <article className="analysis-panel wide-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Income distribution</p><h2>Approved vs. denied — {selectedHmdaCounty ?? scenario.market}</h2>
-                <p className="panel-note">Hover a bar to see that income band's approved / denied counts and brush-link to the scatter plot.</p></div>
+                <p className="panel-note">Brush an income band to filter the scatter plot above.</p></div>
             </div>
             {hmda && <IncomeHistogram hmda={hmda} scenario={scenario} selectedCounty={selectedHmdaCounty} onBrushIncome={setBrushedIncome} />}
           </article>
@@ -630,22 +630,22 @@ function App() {
           <article className="analysis-panel">
             <div className="panel-header">
               <div>
-                <p className="panel-kicker">What the model learned</p>
-                <h2>Biggest factors in mortgage approvals</h2>
-                <p className="panel-note">Across ~58k California loans. DTI and down payment dominate — loan-type codes are hidden as they are not something you can change.</p>
+                <p className="panel-kicker">Model transparency</p>
+                <h2>What HMDA emphasized in training</h2>
+                <p className="panel-note">Population-level patterns from ~58k CA loans. For your profile, use “What moves your approval likelihood” next to the risk surface.</p>
               </div>
             </div>
             {model && <GlobalFeatureImportance report={model} />}
           </article>
           <article className="analysis-panel">
             <div className="panel-header"><div><p className="panel-kicker">Calibration</p><h2>Predicted vs. actual approval rates</h2>
-              <p className="panel-note">Points near the diagonal mean the model&apos;s probabilities match real outcomes.</p></div></div>
+              <p className="panel-note">Well-calibrated means predicted probabilities line up with real approval rates.</p></div></div>
             {model && <CalibrationChart report={model} />}
           </article>
           <article className="analysis-panel">
             <div className="panel-header">
               <div><p className="panel-kicker">Risk surface</p><h2>Approval likelihood across DTI and down payment</h2>
-                <p className="panel-note">Green = higher approval. Click a cell to update debt and savings — the chart beside it updates too.</p></div>
+                <p className="panel-note">Click a cell to try that DTI and down payment in your sliders.</p></div>
               <span className="status-pill muted">Your position marked</span>
             </div>
             <RiskSurface score={score} scenario={scenario}
@@ -661,7 +661,7 @@ function App() {
               <div>
                 <p className="panel-kicker">Your scenario</p>
                 <h2>What moves your approval likelihood</h2>
-                <p className="panel-note">Each bar shows how nudging debt, savings, income, or price would shift approval. Linked to the risk surface on the left.</p>
+                <p className="panel-note">If you nudge income, debt, savings, or price, this shows the estimated approval shift.</p>
               </div>
               <span className="status-pill muted">{score.explanationMode === "model-perturbation" ? "Model perturbation" : "Scenario drivers"}</span>
             </div>
