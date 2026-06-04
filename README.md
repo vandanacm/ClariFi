@@ -210,7 +210,7 @@ ClariFi/
 
 ## Core Datasets
 
-- **HMDA Modified LAR (2025 California)**: ~58,000 mortgage applications used for scatter, histogram, choropleth, and model training
+- **HMDA Modified LAR (2025 California)**: The full 2025 HMDA dataset contains ~12 million records nationally. We filtered to California and stratified-sampled ~5,000 rows per month to create a ~58,000-row training set for the XGBoost model, scatter plot, histogram, and choropleth
 - **BLS Consumer Expenditure Survey**: Peer spending benchmarks by income band and region
 - **XGBoost model**: Calibrated approval probability trained on HMDA data (AUC 0.804, Brier 0.063, 300 trees, isotonic calibration)
 
