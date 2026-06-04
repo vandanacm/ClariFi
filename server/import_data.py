@@ -6,14 +6,12 @@ import hashlib
 import io
 import json
 import secrets
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_DATA = PROJECT_ROOT / "client" / "public" / "data"
-LOCAL_STORE_PATH = PUBLIC_DATA / "local_store.json"
+from paths import LOCAL_STORE_PATH, LOCAL_STORE_SEED_PATH, PUBLIC_DATA
 
 
 def utc_now() -> str:
@@ -46,8 +44,11 @@ def load_local_store() -> dict[str, Any]:
         data = read_json(LOCAL_STORE_PATH)
         if isinstance(data, dict) and "users" in data:
             return data
-    store = initial_store()
     LOCAL_STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if LOCAL_STORE_SEED_PATH.exists():
+        shutil.copy2(LOCAL_STORE_SEED_PATH, LOCAL_STORE_PATH)
+        return read_json(LOCAL_STORE_PATH)
+    store = initial_store()
     with LOCAL_STORE_PATH.open("w", encoding="utf-8") as f:
         json.dump(store, f)
     return store

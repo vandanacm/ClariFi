@@ -6,7 +6,7 @@ scatter points for browser performance.
 
 Usage:
   python scripts/process_hmda_mlar.py
-  python scripts/process_hmda_mlar.py data/hmda_2025_sample_60000.csv public/data/hmda_processed.json
+  python scripts/process_hmda_mlar.py server/data/hmda_2025_sample_60000.csv client/public/data/hmda_processed.json
 """
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_INPUT = PROJECT_ROOT / "data" / "hmda_2025_sample_60000.csv"
-DEFAULT_OUTPUT = PROJECT_ROOT / "public" / "data" / "hmda_processed.json"
+DEFAULT_INPUT = PROJECT_ROOT / "server" / "data" / "hmda_2025_sample_60000.csv"
+DEFAULT_OUTPUT = PROJECT_ROOT / "client" / "public" / "data" / "hmda_processed.json"
 MAX_SCATTER = 2500
 MIN_COUNTY_APPS = 8
 SEED = 42

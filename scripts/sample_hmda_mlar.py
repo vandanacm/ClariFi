@@ -8,14 +8,14 @@ samples N rows from the year instead of 5,000 rows per month.
 Example:
   python scripts/sample_hmda_mlar.py \
     --input "/path/to/2025_combined_mlar.csv" \
-    --output data/hmda_2025_sample_60000.csv \
+    --output server/data/hmda_2025_sample_60000.csv \
     --year 2025 \
     --n 60000
 
 For the narrowed ClariFi model:
   python scripts/sample_hmda_mlar.py \
     --input "/path/to/2025_combined_mlar.csv" \
-    --output data/hmda_2025_ca_sample_60000.csv \
+    --output server/data/hmda_2025_ca_sample_60000.csv \
     --year 2025 \
     --state CA \
     --n 60000
@@ -23,7 +23,7 @@ For the narrowed ClariFi model:
 For the notebook's exact modeling scope:
   python scripts/sample_hmda_mlar.py \
     --input "/path/to/2025_combined_mlar.csv" \
-    --output data/hmda_2025_ca_model_ready_60000.csv \
+    --output server/data/hmda_2025_ca_model_ready_60000.csv \
     --year 2025 \
     --state CA \
     --model-ready \

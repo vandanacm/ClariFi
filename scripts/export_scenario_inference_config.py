@@ -10,8 +10,8 @@ from pathlib import Path
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_INPUT = PROJECT_ROOT / "data" / "hmda_2025_sample_60000.csv"
-DEFAULT_OUTPUT = PROJECT_ROOT / "public" / "data" / "model_outputs" / "scenario_inference_config.json"
+DEFAULT_INPUT = PROJECT_ROOT / "server" / "data" / "hmda_2025_sample_60000.csv"
+DEFAULT_OUTPUT = PROJECT_ROOT / "client" / "public" / "data" / "model_outputs" / "scenario_inference_config.json"
 
 NUMERIC_FEATURES = [
     "loan_amount",

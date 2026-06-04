@@ -66,12 +66,12 @@ Copy each block into a slide: **Title** → slide title, **On slide** → body b
 | Maya | Sacramento | ~$9.2k | Mid — good Sacramento fit |
 | Diego | Los Angeles | ~$6.2k | Lower — constrained; interventions matter |
 
-*Credentials in `data/user_upload_pack/user_profiles_seed.csv`*
+*Credentials in `server/data/user_upload_pack/user_profiles_seed.csv`*
 
 **Speaker notes (Jordan · ~30 sec):**
 - We seeded four users with different incomes and regions—not a single demo household.
 - Log in as Maya (Sacramento) for the main walkthrough; Sofia optional for contrast at the end.
-- CSV uploads per user in `data/user_upload_pack/`.
+- CSV uploads per user in `server/data/user_upload_pack/`.
 
 ---
 

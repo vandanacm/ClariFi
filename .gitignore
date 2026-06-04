@@ -21,15 +21,13 @@ vite.config.d.ts
 reports/
 PROGRESS_REPORT.md
 
-# Legacy root data path (app uses client/public/data/local_store.json)
-data/clarifi_store.json
+# Runtime auth store (seed: local_store.seed.json)
+client/public/data/local_store.json
 
 # Required runtime data — keep tracked in git:
-#   client/public/data/hmda_processed.json
-#   client/public/data/model_report.json
-#   client/public/data/model_outputs/   (XGBoost .joblib, SHAP report, scenario config)
-#   client/public/data/local_store.json (demo users; regenerated if missing)
-#   server/data/hmda_2025_sample_60000.csv
+#   client/public/data/hmda_processed.json, model_report.json, model_outputs/
+#   client/public/data/local_store.seed.json
+#   server/data/hmda_2025_sample_60000.csv, server/data/user_upload_pack/
 
 # Generated presentations (rebuild: npm run build:video-presentation)
 *.pdf

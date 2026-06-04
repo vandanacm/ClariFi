@@ -532,7 +532,7 @@ def build_pptx(asset_paths: dict[str, Path]) -> None:
     deck.add_bullet_slide(
         "Live Demo",
         [
-            "Register demo users from data/user_upload_pack/user_profiles_seed.csv",
+            "Register demo users from server/data/user_upload_pack/user_profiles_seed.csv",
             "Login → upload CSV → adjust income, debt, savings, price sliders",
             "Observe readiness score, map, scatter, histogram, calibration",
             "Plan B: screen recording or screenshots if live API fails",
