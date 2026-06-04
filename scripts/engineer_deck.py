@@ -14,6 +14,7 @@ from pptx.util import Inches, Pt
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = PROJECT_ROOT / "College of Engineering PPT Template - Clean.pptx"
+TEMPLATE_FALLBACK = PROJECT_ROOT / "docs" / "ClariFi_Video_Presentation.pptx"
 FOOTER_TEXT = "ECS 273 Spring Quarter 2026"
 FONT = "Arial"
 
@@ -78,17 +79,23 @@ def content_placeholder(slide):
 
 
 class EngineerDeck:
-    def __init__(self, template_path: Path = TEMPLATE) -> None:
-        if not template_path.exists():
-            raise FileNotFoundError(f"Template not found: {template_path}")
-        self.template_path = template_path
+    def __init__(self, template_path: Path | None = None) -> None:
+        path = template_path or TEMPLATE
+        if not path.exists() and TEMPLATE_FALLBACK.exists():
+            path = TEMPLATE_FALLBACK
+        if not path.exists():
+            raise FileNotFoundError(f"Template not found: {path}")
+        self.template_path = path
         self.prs: Presentation | None = None
 
     def create(self, output_path: Path) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(self.template_path, output_path)
         self.output_path = output_path
-        self.prs = Presentation(str(output_path))
+        if output_path.resolve() != self.template_path.resolve():
+            shutil.copy(self.template_path, output_path)
+            self.prs = Presentation(str(output_path))
+        else:
+            self.prs = Presentation(str(self.template_path))
         delete_all_slides(self.prs)
 
     def save(self, output_path: Path | None = None) -> None:

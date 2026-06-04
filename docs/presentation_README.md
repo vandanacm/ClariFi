@@ -1,72 +1,44 @@
 # ClariFi presentation files
 
-## Style guide
-
-Slides use **`College of Engineering PPT Template - Clean.pptx`** (UC Davis Engineering), matching the ECS 273 FinSight-style deck:
-
-- Dark blue section title bar (template master)
-- Bullet slides for Evaluation, Technical Challenges, Limitations, Distribution of Work
-- Image + bullets for Visualisations
-- **Footer on every slide (bottom right):** `ECS 273 Spring Quarter 2026`
+## Regenerate everything (charts + decks)
 
 ```bash
+.venv/bin/python scripts/build_presentation.py      # charts + ClariFi_Presentation.pptx
+.venv/bin/python scripts/build_video_presentation.py  # charts + ClariFi_Video_Presentation.pptx
+# or from repo root after npm install:
 npm run build:presentation
 npm run build:video-presentation
 ```
 
-**Before presenting:**
+Charts render at **300 DPI** for clear projection. Persona table uses **live XGBoost scores** from `user_profiles_seed.csv` (Arjun → San Diego).
 
-1. Edit `[Name 1]`, `[Name 2]`, `[Name 3]` on title, distribution table, thank-you slides
-2. Add **`docs/presentation_assets/dashboard_screenshot.png`** (run app, capture full dashboard) for best Visualisations slide
-3. Adjust Distribution of Work checkmarks to match your team
-
-## PowerPoint (ready to present)
-
-**Open:** `docs/ClariFi_Presentation.pptx` (~18 slides, full project coverage)
-
-11 slides including:
-- Title, problem, architecture, model scope
-- Four personas + **live scores from your trained model**
-- Metrics chart, calibration plot, county approval chart
-- Demo checklist + limitations
-
-## Chart images (editable)
-
-Folder: `docs/presentation_assets/`
+## Chart images (`docs/presentation_assets/`)
 
 | File | Content |
 |------|---------|
+| `metrics_plot.png` | Test AUC, balanced accuracy, Brier, denial recall |
 | `calibration_plot.png` | Predicted vs actual approval (9 bins) |
-| `metrics_plot.png` | AUC, balanced accuracy, Brier, denial recall |
-| `persona_scores.png` | Sofia / Arjun / Maya / Diego readiness % |
-| `county_approval.png` | Sample CA counties by HMDA approval rate |
-| `architecture.png` | System diagram |
-| `training_scope.png` | Data filters & row counts |
+| `global_features.png` | Training-data feature weights (DTI dominates) |
+| `persona_comparison.png` | Four demo users + readiness scores + DTI/LTV |
+| `county_approval.png` | CA counties — **fixed 38–85% color scale** |
+| `dashboard_layout.png` | Dashboard section flow (budget-first UX) |
+| `architecture.png` | React + FastAPI + XGBoost + MongoDB |
+| `training_scope.png` | HMDA filters & row counts |
+| `dashboard_screenshot.png` | *(optional)* paste your own live UI capture |
 
-## Regenerate after model changes
+## Video deck (9 minutes)
 
-```bash
-npm run build:presentation
-```
+**File:** `docs/ClariFi_Video_Presentation.pptx` (~16 slides)  
+**Script:** `docs/video_script_9min.md`
 
-Requires: `public/data/model_report.json`, `hmda_2025_xgboost_shap_report.json`, joblib artifact.
+Slides include: intro (18 D3 views), architecture, **dashboard layout**, live demo checklist, metrics, calibration, **training patterns**, four personas (Sofia/Arjun San Diego/Maya/Diego), challenges, limitations, division of labor.
 
-## Add live UI screenshots (optional)
+**Optional:** Save a browser screenshot as `docs/presentation_assets/dashboard_screenshot.png` and re-run `build:video-presentation` — it appears on the live-demo slide.
 
-1. Run `npm run dev:full`
-2. Capture 2–3 screenshots (dashboard overview, county map, histogram)
-3. Insert into slides 10–11 in PowerPoint
+## Full project deck
 
-Speaker script: `docs/presentation_9min_google_slides.md`
+**File:** `docs/ClariFi_Presentation.pptx`
 
-## 9-minute video (rubric-aligned)
+## Template note
 
-**Open:** `docs/ClariFi_Video_Presentation.pptx` (~16 slides, engineering template + speaker notes)
-
-**Script:** `docs/video_script_rubric.md` — timing, rubric points, demo checklist, presenter split
-
-```bash
-npm run build:video-presentation
-```
-
-Regenerates the video deck and refreshes chart assets via `build_presentation.py`. Edit slide 10 (division of labor) before recording.
+Uses `College of Engineering PPT Template - Clean.pptx` when present; otherwise rebuilds from the existing video deck template in `docs/`.

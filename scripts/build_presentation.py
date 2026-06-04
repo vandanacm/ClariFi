@@ -14,12 +14,23 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ASSETS = PROJECT_ROOT / "docs" / "presentation_assets"
 OUTPUT_PPTX = PROJECT_ROOT / "docs" / "ClariFi_Presentation.pptx"
-MODEL_REPORT = PROJECT_ROOT / "public" / "data" / "model_report.json"
-SHAP_REPORT = PROJECT_ROOT / "public" / "data" / "model_outputs" / "hmda_2025_xgboost_shap_report.json"
-HMDA_JSON = PROJECT_ROOT / "public" / "data" / "hmda_processed.json"
-LOGO = PROJECT_ROOT / "public" / "logo.png"
-PERSONAS_CSV = PROJECT_ROOT / "data" / "user_upload_pack" / "user_profiles_seed.csv"
-CHART_DPI = 220
+MODEL_REPORT = PROJECT_ROOT / "client" / "public" / "data" / "model_report.json"
+SHAP_REPORT = PROJECT_ROOT / "client" / "public" / "data" / "model_outputs" / "hmda_2025_xgboost_shap_report.json"
+HMDA_JSON = PROJECT_ROOT / "client" / "public" / "data" / "hmda_processed.json"
+LOGO = PROJECT_ROOT / "client" / "public" / "logo.png"
+PERSONAS_CSV = PROJECT_ROOT / "server" / "data" / "user_upload_pack" / "user_profiles_seed.csv"
+CHART_DPI = 300
+
+USER_FEATURE_LABELS = {
+    "num__dti_numeric": "Debt-to-income (DTI)",
+    "num__down_payment_rate_proxy": "Down payment %",
+    "num__combined_loan_to_value_ratio": "Loan-to-value (LTV)",
+    "num__loan_to_income": "Loan vs. income",
+    "num__income_vs_county_median": "Income vs. county median",
+    "num__loan_vs_county_median": "Loan size vs. county",
+    "num__property_value": "Home price",
+    "num__loan_term": "Loan term",
+}
 
 # Brand-ish colors (teal theme)
 TEAL = "#007f7a"
@@ -147,8 +158,9 @@ def _scenario_metrics(income: float, debt: float, savings: float, price: float) 
 
 def save_persona_comparison(out: Path) -> None:
     """Table of inputs (market, income, price, DTI, LTV) + readiness scores."""
-    sys.path.insert(0, str(PROJECT_ROOT))
-    from api.main import ScenarioInput, load_model_cache, model_score
+    sys.path.insert(0, str(PROJECT_ROOT / "server"))
+    from data_scheme import ScenarioInput
+    from main import load_model_cache, model_score
 
     personas = load_demo_personas()
     if not personas or not load_model_cache():
@@ -270,10 +282,11 @@ def save_county_approval_chart(hmda: dict, out: Path) -> None:
     names = [x[0] for x in pick]
     rates = [x[1] * 100 for x in pick]
     fig, ax = plt.subplots(figsize=(9, 5.5))
-    colors = [plt.cm.RdYlGn(r / 100) for r in rates]
+    norm = plt.Normalize(vmin=38, vmax=85)
+    colors = [plt.cm.RdYlGn(norm(r)) for r in rates]
     ax.barh(names, rates, color=colors, edgecolor="white", linewidth=0.5)
-    ax.set_xlabel("HMDA approval rate (%)", fontsize=10, fontweight="600")
-    ax.set_title("California counties (sample with ≥20 applications)", fontsize=12, fontweight="700")
+    ax.set_xlabel("HMDA approval rate (%) — fixed color scale 38–85%", fontsize=10, fontweight="600")
+    ax.set_title("California counties (≥20 applications in sample)", fontsize=12, fontweight="700")
     ax.set_xlim(0, 100)
     fig.tight_layout()
     fig.savefig(out, dpi=CHART_DPI, bbox_inches="tight")
@@ -327,8 +340,64 @@ def save_training_scope(shap: dict, out: Path) -> None:
     plt.close(fig)
 
 
+def save_global_features_plot(report: dict, out: Path) -> None:
+    features = [
+        f for f in (report.get("features") or [])
+        if f.get("feature") in USER_FEATURE_LABELS
+    ]
+    features.sort(key=lambda x: x.get("magnitude", 0), reverse=True)
+    features = features[:6]
+    if not features:
+        return
+    labels = [USER_FEATURE_LABELS[f["feature"]] for f in features]
+    mags = [f.get("magnitude", 0) * 100 for f in features]
+    fig, ax = plt.subplots(figsize=(9, 4.8))
+    y = range(len(labels))
+    bars = ax.barh(list(y), mags, color=TEAL, edgecolor=INK, linewidth=0.5, height=0.62)
+    ax.set_yticks(list(y))
+    ax.set_yticklabels(labels, fontsize=11)
+    ax.invert_yaxis()
+    ax.set_xlabel("Relative importance (% of global SHAP magnitude)", fontsize=11, fontweight="600")
+    ax.set_title("What HMDA training data emphasized (~58k CA loans)", fontsize=13, fontweight="700", pad=10)
+    for bar, val in zip(bars, mags):
+        ax.text(bar.get_width() + 1.5, bar.get_y() + bar.get_height() / 2, f"{val:.0f}%", va="center", fontsize=11, fontweight="700")
+    ax.set_xlim(0, max(mags) * 1.18)
+    ax.text(0.02, 0.02, "DTI dominates · per-user drivers shown in scenario SHAP panel", transform=ax.transAxes, fontsize=9, color=MUTED)
+    fig.tight_layout()
+    fig.savefig(out, dpi=CHART_DPI, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+def save_dashboard_layout_overview(out: Path) -> None:
+    """Schematic of current dashboard flow (for deck when no browser screenshot)."""
+    fig, ax = plt.subplots(figsize=(11, 7.5))
+    ax.set_xlim(0, 11)
+    ax.set_ylim(0, 8)
+    ax.axis("off")
+
+    sections = [
+        (0.4, 6.9, 10.2, 0.75, "1 - Readiness score + DTI / approval metrics", TEAL),
+        (0.4, 5.85, 10.2, 0.85, "2 - Budget mixer (donut + sliders) then cashflow", TEAL_LIGHT),
+        (0.4, 4.75, 4.9, 0.85, "3 - What-if simulator", TEAL),
+        (5.5, 4.75, 4.7, 0.85, "4 - BLS peer benchmarks", MUTED),
+        (0.4, 3.55, 10.2, 1.05, "5 - Readiness planning (8 panels)", TEAL_LIGHT),
+        (0.4, 2.25, 10.2, 1.05, "6 - HMDA map, scatter, histogram (linked)", TEAL),
+        (0.4, 0.95, 10.2, 1.05, "7 - Model audit (risk surface + scenario SHAP)", TEAL),
+    ]
+    for x, y, w, h, text, color in sections:
+        rect = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.04", facecolor=color, edgecolor=INK, alpha=0.88)
+        ax.add_patch(rect)
+        ax.text(x + 0.15, y + h / 2, text, ha="left", va="center", fontsize=10, fontweight="700", color="white")
+
+    ax.annotate("", xy=(5.5, 5.2), xytext=(5.2, 6.5), arrowprops=dict(arrowstyle="->", color=INK, lw=1.8))
+    ax.annotate("", xy=(5.5, 4.0), xytext=(5.2, 5.0), arrowprops=dict(arrowstyle="->", color=INK, lw=1.8))
+    ax.set_title("ClariFi dashboard — linked view order (June 2026)", fontsize=15, fontweight="700", pad=12)
+    fig.savefig(out, dpi=CHART_DPI, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
 def _dashboard_image(asset_paths: dict[str, Path]) -> Path | None:
-    for key in ("dashboard", "architecture"):
+    for key in ("dashboard", "dashboard_layout", "architecture"):
         p = asset_paths.get(key)
         if p and p.exists():
             return p
@@ -440,7 +509,7 @@ def build_pptx(asset_paths: dict[str, Path]) -> None:
             "  · Brier score ≈ 0.06 after calibration",
             "  · Balanced accuracy ≈ 0.74 at threshold 0.90",
             "  · Denial recall ≈ 0.66 (room to improve on rare denials)",
-            "Personas: Sofia & Arjun (Alameda), Maya (Sacramento), Diego (LA) — scores reflect inputs.",
+            "Personas: Sofia (Alameda), Arjun (San Diego), Maya (Sacramento), Diego (LA) — scores reflect inputs.",
         ],
     )
 
@@ -527,6 +596,8 @@ def main() -> int:
         "architecture": ASSETS / "architecture.png",
         "training_scope": ASSETS / "training_scope.png",
         "dashboard": ASSETS / "dashboard_screenshot.png",
+        "dashboard_layout": ASSETS / "dashboard_layout.png",
+        "global_features": ASSETS / "global_features.png",
     }
 
     print("Generating charts...")
@@ -534,7 +605,10 @@ def main() -> int:
         save_calibration_plot(shap, paths["calibration"])
         save_metrics_plot(report, shap, paths["metrics"])
         save_training_scope(shap, paths["training_scope"])
+    if report:
+        save_global_features_plot(report, paths["global_features"])
     save_architecture_diagram(paths["architecture"])
+    save_dashboard_layout_overview(paths["dashboard_layout"])
     if hmda:
         save_county_approval_chart(hmda, paths["counties"])
     try:

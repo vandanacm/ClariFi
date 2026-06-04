@@ -205,8 +205,7 @@ The model also uses derived **DTI** (debt-to-income), **LTV** (loan-to-value), l
 ## Pre-recording checklist
 
 - [ ] Edit title, division-of-labor table, and thank-you slide with real names and email
-- [ ] `npm run build:presentation` (refresh charts if model changed)
-- [ ] `npm run build:video-presentation` (refresh video deck)
+- [ ] `npm run build:presentation` then `npm run build:video-presentation` (refresh charts + decks)
 - [ ] Register Maya + Sofia; upload CSVs from `data/user_upload_pack/`
 - [ ] `npm run dev:full` — test demo path once
 - [ ] Screen recorder: 1920×1080, 30 fps
