@@ -94,8 +94,8 @@ To test with different personas, use the pre-configured test users below. All sh
 
 | Name | Email | Persona | Target Market | Transaction CSV |
 |---|---|---|---|---|
-| Sofia Chen | `sofia.sf@clarifi.test` | High-income SF buyer | Alameda | `sf_high_income_transactions.csv` | 
-| Arjun Patel | `arjun.bay@clarifi.test` | Median-plus SoCal buyer | San Diego | `bay_median_plus_transactions.csv` |
+| Sofia Chen | `sofia.sf@clarifi.test` | High-income SF buyer (User not registered yet) | Alameda | `sf_high_income_transactions.csv` | 
+| Arjun Patel | `arjun.bay@clarifi.test` | Median-plus SoCal buyer (User not registered yet) | San Diego | `bay_median_plus_transactions.csv` |
 | Maya Gomez | `maya.sac@clarifi.test` | Mid-income Sacramento buyer (**video demo user**) | Sacramento | `sacramento_mid_income_transactions.csv` | 
 | Diego Rivera | `diego.inland@clarifi.test` | Lower-income Inland renter (**application setup demo user**) | Los Angeles | `inland_lower_income_transactions.csv` | 
 
