@@ -1,5 +1,13 @@
-name,email,password,persona,target_market,monthly_income,monthly_debt,savings,target_price,expected_position
-Sofia Chen,sofia.sf@clarifi.test,Testpass123,High income SF buyer,Alameda,18500,900,240000,1450000,Strong Bay Area affordability
-Arjun Patel,arjun.bay@clarifi.test,Testpass123,Median-plus SoCal buyer,San Diego,12800,1200,130000,790000,Borderline/possible San Diego purchase
-Maya Gomez,maya.sac@clarifi.test,Testpass123,Mid-income Sacramento buyer,Sacramento,9200,950,85000,560000,Good fit in Sacramento region
-Diego Rivera,diego.inland@clarifi.test,Testpass123,Lower-income Inland renter,Los Angeles,6200,1400,35000,520000,Likely constrained in coastal markets
+name,email,password,persona,target_market,monthly_income,monthly_debt,savings,target_price,readiness_score,transaction_csv
+Diego Rivera,diego.inland@clarifi.test,Testpass123,Lower-income Inland renter,Los Angeles,6200,1400,35000,520000,8,inland_lower_income_transactions.csv
+Hassan Okonkwo,hassan.alameda@clarifi.test,Testpass123,Stretched Bay Area renter,Alameda,9600,1280,68000,875000,8,hassan_alameda_transactions.csv
+Aisha Nguyen,aisha.alameda@clarifi.test,Testpass123,Dual-income with high debt load,Alameda,11200,1350,75000,920000,20,aisha_alameda_transactions.csv
+Jordan Lee,jordan.sac@clarifi.test,Testpass123,Entry-level Sacramento buyer,Sacramento,5400,1100,22000,395000,20,jordan_sacramento_transactions.csv
+Carlos Mendez,carlos.la@clarifi.test,Testpass123,LA renter stretching affordability,Los Angeles,8400,1180,48000,610000,26,carlos_la_transactions.csv
+Priya Sharma,priya.alameda@clarifi.test,Testpass123,Strong income East Bay buyer,Alameda,14200,1100,180000,1180000,92,priya_alameda_transactions.csv
+Marcus Williams,marcus.sd@clarifi.test,Testpass123,San Diego professional buyer,San Diego,10500,850,95000,680000,92,marcus_sandiego_transactions.csv
+Keisha Brooks,keisha.la@clarifi.test,Testpass123,LA buyer with solid down payment,Los Angeles,11200,900,125000,685000,93,keisha_la_transactions.csv
+Sofia Chen,sofia.sf@clarifi.test,Testpass123,High income SF buyer,Alameda,18500,900,240000,1450000,94,sf_high_income_transactions.csv
+Arjun Patel,arjun.bay@clarifi.test,Testpass123,Median-plus SoCal buyer,San Diego,12800,1200,130000,790000,96,bay_median_plus_transactions.csv
+Maya Gomez,maya.sac@clarifi.test,Testpass123,Mid-income Sacramento buyer,Sacramento,9200,950,85000,560000,97,sacramento_mid_income_transactions.csv
+Rachel Kim,rachel.sac@clarifi.test,Testpass123,Strong Sacramento first-time buyer,Sacramento,11800,800,145000,625000,98,rachel_sacramento_transactions.csv

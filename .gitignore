@@ -13,28 +13,8 @@ __pycache__/
 *.pyc
 vite.config.js
 vite.config.d.ts
-
-# Secrets — never commit
 .env
-
-# Local-only docs / reports
-reports/
-PROGRESS_REPORT.md
-
-# Runtime auth store (seed: local_store.seed.json)
 client/public/data/local_store.json
 
-# Required runtime data — keep tracked in git:
-#   client/public/data/hmda_processed.json, model_report.json, model_outputs/
-#   client/public/data/local_store.seed.json
-#   server/data/hmda_2025_sample_60000.csv, server/data/user_upload_pack/
 
-# Generated presentations (rebuild: npm run build:video-presentation)
-*.pdf
-*.pptx
-*.potx
-docs/presentation_assets/
 
-# Optional reference video extracts (not needed to run the app)
-docs/reference_video_frames/
-videoplayback.mp4
