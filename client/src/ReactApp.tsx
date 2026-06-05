@@ -20,6 +20,21 @@ import type {
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const percent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 0 });
 
+type SavedScenario = { id: string; createdAt: string; input: ScenarioInput; result: ScoreResult };
+
+/** Highlight every column tied for best (uses same rounding as displayed values). */
+function compareBestIds(
+  scenarios: SavedScenario[],
+  value: (s: SavedScenario) => number,
+  mode: "max" | "min",
+): Set<string> {
+  if (!scenarios.length) return new Set();
+  const target = mode === "max"
+    ? Math.max(...scenarios.map(value))
+    : Math.min(...scenarios.map(value));
+  return new Set(scenarios.filter(s => value(s) === target).map(s => s.id));
+}
+
 function formatExplainerLabel(mode: string, loading: boolean): string {
   if (loading) return "Thinking…";
   if (mode === "openrouter-rate-limited") return "OpenRouter · rate limited";
@@ -727,16 +742,53 @@ function App() {
                 </tr></thead>
                 <tbody>
                   {[
-                    { label: "Annual income", fmt: (s: typeof savedScenarios[0]) => money.format(s.input.income * 12), best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.input.income > b.input.income ? a : b).id },
-                    { label: "Approval likelihood", fmt: (s: typeof savedScenarios[0]) => s.result.approvalLikelihood != null ? percent.format(s.result.approvalLikelihood) : "—", best: (vals: typeof savedScenarios) => vals.reduce((a, b) => (a.result.approvalLikelihood ?? 0) > (b.result.approvalLikelihood ?? 0) ? a : b).id },
-                    { label: "Readiness score", fmt: (s: typeof savedScenarios[0]) => s.result.score != null ? `${s.result.score}/100` : "—", best: (vals: typeof savedScenarios) => vals.reduce((a, b) => (a.result.score ?? 0) > (b.result.score ?? 0) ? a : b).id },
-                    { label: "Debt-to-income", fmt: (s: typeof savedScenarios[0]) => percent.format(s.result.dti), best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.result.dti < b.result.dti ? a : b).id },
-                    { label: "Down payment", fmt: (s: typeof savedScenarios[0]) => percent.format(s.result.downPaymentRate), best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.result.downPaymentRate > b.result.downPaymentRate ? a : b).id },
-                    { label: "Monthly surplus", fmt: (s: typeof savedScenarios[0]) => money.format(s.result.monthlySurplus), best: (vals: typeof savedScenarios) => vals.reduce((a, b) => a.result.monthlySurplus > b.result.monthlySurplus ? a : b).id },
+                    {
+                      label: "Annual income",
+                      fmt: (s: SavedScenario) => money.format(s.input.income * 12),
+                      bestIds: (vals: SavedScenario[]) =>
+                        compareBestIds(vals, s => Math.round(s.input.income * 12), "max"),
+                    },
+                    {
+                      label: "Approval likelihood",
+                      fmt: (s: SavedScenario) =>
+                        s.result.approvalLikelihood != null ? percent.format(s.result.approvalLikelihood) : "—",
+                      bestIds: (vals: SavedScenario[]) =>
+                        compareBestIds(vals, s => Math.round((s.result.approvalLikelihood ?? 0) * 100), "max"),
+                    },
+                    {
+                      label: "Readiness score",
+                      fmt: (s: SavedScenario) => (s.result.score != null ? `${s.result.score}/100` : "—"),
+                      bestIds: (vals: SavedScenario[]) =>
+                        compareBestIds(vals, s => s.result.score ?? -1, "max"),
+                    },
+                    {
+                      label: "Debt-to-income",
+                      fmt: (s: SavedScenario) => percent.format(s.result.dti),
+                      bestIds: (vals: SavedScenario[]) =>
+                        compareBestIds(vals, s => Math.round(s.result.dti * 100), "min"),
+                    },
+                    {
+                      label: "Down payment",
+                      fmt: (s: SavedScenario) => percent.format(s.result.downPaymentRate),
+                      bestIds: (vals: SavedScenario[]) =>
+                        compareBestIds(vals, s => Math.round(s.result.downPaymentRate * 100), "max"),
+                    },
+                    {
+                      label: "Monthly surplus",
+                      fmt: (s: SavedScenario) => money.format(s.result.monthlySurplus),
+                      bestIds: (vals: SavedScenario[]) =>
+                        compareBestIds(vals, s => Math.round(s.result.monthlySurplus), "max"),
+                    },
                   ].map(row => {
-                    const bestId = row.best(scenariosForCompare);
-                    return (<tr key={row.label}><td className="compare-metric-label">{row.label}</td>
-                      {scenariosForCompare.map(s => (<td key={s.id} className={s.id === bestId ? "compare-best" : ""}>{row.fmt(s)}</td>))}</tr>);
+                    const best = row.bestIds(scenariosForCompare);
+                    return (
+                      <tr key={row.label}>
+                        <td className="compare-metric-label">{row.label}</td>
+                        {scenariosForCompare.map(s => (
+                          <td key={s.id} className={best.has(s.id) ? "compare-best" : ""}>{row.fmt(s)}</td>
+                        ))}
+                      </tr>
+                    );
                   })}
                 </tbody>
               </table>

@@ -1,103 +1,112 @@
 # ClariFi
 
-ClariFi is an AI-guided personal finance and mortgage readiness visual analytics system. It combines 18 interactive D3 visualizations with a calibrated XGBoost model trained on ~58,000 California HMDA mortgage applications, BLS Consumer Expenditure peer benchmarks, and LLM-powered explanations to help users understand their mortgage readiness before applying.
+ECS 273 Team 7 — Lalitha Dasu, Pranav Manimaran, Vandana Mansur
 
-## System Architecture
+## Description
 
-Three-tier flow: React + D3 dashboard (linked views), FastAPI backend (scoring, BLS, LLM), and data layer (HMDA, XGBoost artifact, MongoDB or local JSON fallback).
+ClariFi is an AI-guided personal finance and **mortgage readiness** visual analytics system for California households. Users upload monthly transaction CSVs (or use demo personas), adjust budget and what-if sliders, and see an **educational** approval-likelihood score driven by a calibrated **XGBoost** model trained on roughly **58,000** stratified-sampled **HMDA 2025** California applications. The dashboard exposes **18 linked views**—county choropleth, income histogram with brushing, HMDA scatter, risk-surface heatmap, SHAP-style explanations, BLS peer benchmarks, and more—so users can relate personal cashflow to regional market patterns before applying for a loan.
+
+The stack is a **React + D3** front end, a **FastAPI** back end (scoring, scenario API, optional LLM explanations), and a data layer (processed HMDA JSON, BLS benchmarks, model artifacts under `client/public/data/model_outputs/`, MongoDB Atlas with **local JSON fallback** for auth and saved scenarios). Scoring features align with the Colab notebook via `scenario_inference_config.json`; the UI debounces slider updates and links map, histogram, and scatter through shared state.
+
+The readiness score is **not** a credit decision or financial advice.
 
 ![ClariFi system architecture](client/public/clarifi_system_architecture.png)
 
-## Setup Instructions
+### For course staff (TA grading)
+
+**Environment file:** API keys and MongoDB settings are **not** committed to git. We submitted **`env.txt`** on **Canvas** (course submission). To run with full functionality (Atlas + optional AI explainer):
+
+1. Download **`env.txt`** from our Canvas submission.
+2. Copy it to the project root as **`.env`** (same variable names as `.env.example`).
+
+If `.env` is missing, the app still runs: auth uses `client/public/data/local_store.json` (seeded from `local_store.seed.json`), and the LLM agent falls back to rule-based templates.
+
+**Optional 1-minute install/demo video:** *(not submitted / not required for this grade)* — add an unlisted YouTube link here if you record one later.
+
+## Installation
+
+**Follow along with this YouTube video to install the application:** [ClariFi Installation | YouTube](https://www.youtube.com/watch?v=PLACEHOLDER)
+
+**[0] Project Walkthrough**
 
 ### Prerequisites
 
-- **Python 3.11+** (for the backend)
-- **Node.js 18+** and **npm** (for the frontend)
-- **Git** (to clone the repository)
+- **Python 3.11+** (backend)
+- **Node.js 18+** and **npm** (frontend)
+- **Git** (clone)
 
-### Backend Setup
+### 1. Clone and environment
 
-**1. Navigate to the server folder**
-
+```bash
+git clone https://github.com/vandanacm/ClariFi.git
+cd ClariFi
 ```
+
+Copy **`.env`** from the course **`env.txt`** on Canvas (see [For course staff](#for-course-staff-ta-grading)), or use defaults:
+
+```bash
+cp .env.example .env
+```
+
+### 2. Backend
+
+```bash
 cd server
-```
-
-**2. Create and activate a Python virtual environment**
-
-```
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-**3. Install required Python packages**
-
-```
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-**4. Configure environment variables**
-
-The `.env.example` in the project root already contains working defaults (MongoDB Atlas URI, OpenRouter key placeholder). Copy it if you don't have a `.env` yet:
-
-```
-cp ../.env.example ../.env
-```
-
-The app connects to MongoDB Atlas by default (open to all IPs). If Atlas is unreachable, it falls back to `client/public/data/local_store.json` (created from `local_store.seed.json` on first run; gitignored once you use the app).
-
-If you want AI-powered explanations, add your OpenRouter API key in `.env`. Without it, the app still works using rule-based template explanations.
-
-**5. XGBoost model artifacts**
-
-After clone, confirm `client/public/data/model_outputs/` is present (tracked in git, ~600 KB). Required files:
+Confirm model artifacts exist (tracked in git):
 
 | File | Purpose |
 |------|---------|
-| `hmda_2025_xgboost_calibrated_pipeline.joblib` | Live approval scoring |
-| `scenario_inference_config.json` | Feature engineering for the API |
-| `hmda_2025_xgboost_shap_report.json` | Calibration fallback + extended diagnostics |
+| `client/public/data/model_outputs/hmda_2025_xgboost_calibrated_pipeline.joblib` | Live approval scoring |
+| `client/public/data/model_outputs/scenario_inference_config.json` | Feature engineering for the API |
+| `client/public/data/model_outputs/hmda_2025_xgboost_shap_report.json` | Calibration + diagnostics |
 
-If the folder is missing, the app still runs but shows **Model unavailable**. Regenerate from `notebooks/hmda_2025_xgboost_shap.ipynb` or copy artifacts from Colab/Drive into `client/public/data/model_outputs/`.
+If missing, regenerate from `notebooks/hmda_2025_xgboost_shap.ipynb`.
 
-**6. Start the FastAPI server**
+### 3. Frontend
 
-```
-uvicorn main:app --host 127.0.0.1 --port 8001
-```
-
-The API will be available at: http://127.0.0.1:8001
-
-API documentation available at: http://127.0.0.1:8001/docs
-
-### Frontend Setup
-
-**1. Open a new terminal and navigate to the client folder**
-
-```
+```bash
 cd client
-```
-
-**2. Install required Node.js packages**
-
-```
 npm install
 ```
 
-**3. Start the React development server**
+## Execution (demo)
 
+Run **two terminals** from the repo root.
+
+**Terminal A — API (port 8001):**
+
+```bash
+cd server
+source venv/bin/activate
+uvicorn main:app --host 127.0.0.1 --port 8001
 ```
+
+- API: http://127.0.0.1:8001  
+- Swagger: http://127.0.0.1:8001/docs  
+
+**Terminal B — UI (port 5173):**
+
+```bash
+cd client
 npm run dev
 ```
 
-**4. Open the app in your browser**
+- App: http://127.0.0.1:5173 (Vite proxies `/api/*` → port 8001)
 
-Visit: http://127.0.0.1:5173
+**Automated checks (optional):**
 
-The frontend proxies all `/api/*` requests to the backend server on port 8001.
+```bash
+cd /path/to/ClariFi
+pip install -r server/requirements.txt
+python -m pytest tests/ -q
+```
 
-### Test Users and Sample Data
+### Test users and sample data
 
 You can explore the app without registering by clicking **"Explore demo →"** on the landing page. This uses a built-in demo account.
 
@@ -105,17 +114,17 @@ To test with different personas, use the pre-configured test users below. All sh
 
 | Name | Email | Persona | Target Market | Transaction CSV |
 |---|---|---|---|---|
-| Sofia Chen | `sofia.sf@clarifi.test` | High-income SF buyer | Alameda | `sf_high_income_transactions.csv` |
+| Sofia Chen | `sofia.sf@clarifi.test` | High-income SF buyer | Alameda | `sf_high_income_transactions.csv` | 
 | Arjun Patel | `arjun.bay@clarifi.test` | Median-plus SoCal buyer | San Diego | `bay_median_plus_transactions.csv` |
-| Maya Gomez | `maya.sac@clarifi.test` | Mid-income Sacramento buyer | Sacramento | `sacramento_mid_income_transactions.csv` |
-| Diego Rivera | `diego.inland@clarifi.test` | Lower-income Inland renter | Los Angeles | `inland_lower_income_transactions.csv` |
+| Maya Gomez | `maya.sac@clarifi.test` | Mid-income Sacramento buyer (**video demo user**) | Sacramento | `sacramento_mid_income_transactions.csv` | 
+| Diego Rivera | `diego.inland@clarifi.test` | Lower-income Inland renter (**application setup demo user**) | Los Angeles | `inland_lower_income_transactions.csv` | 
 
 **Steps to test a persona:**
 
-1. Register using the email and password from the table above
-2. After sign-in, upload the matching CSV from `server/data/user_upload_pack/`
-3. The sliders will auto-fill from the uploaded transaction data, you may also edit the sliders and check how the rates vary with what if scenarios and save each scenario. 
-4. Explore the dashboard — each persona produces a different readiness score and risk profile
+1. Register using the email and password from the table above (`Testpass123` for all).
+2. After sign-in, upload the matching CSV from `server/data/user_upload_pack/`.
+3. Adjust sliders and save scenarios; each persona produces a different readiness score and risk profile.
+
 
 **Testing the re-upload flow:**
 
@@ -158,31 +167,15 @@ Linked views follow a natural readiness workflow:
 6. **HMDA market context** — county map (fixed 38–85% scale), scatter, histogram (bidirectional brushing)
 7. **Model audit** — performance, peer comparison, global/local SHAP, calibration, risk surface
 
-## Linked Views and Interactions
+## Visualizations (D3.js)
 
-The dashboard has 18 D3 visualizations connected through bidirectional brushing and shared state:
+Advanced charts are implemented with **D3 v7** (`client/package.json`). Primary D3 modules include scales, axes, brushing, geo projections, and transitions in:
 
-| Chart | Type | Linked Interactions |
-|---|---|---|
-| CashflowChart | Waterfall | Hover pop-out with glow/dim |
-| ExpenseDonut | Donut | Hover/click expand slice, bidirectional with sliders |
-| GuidelineGauges | Dual gauge | DTI and down payment vs. lender zones |
-| DtiDecomposition | Stacked bar | Housing, debt, and total DTI vs. 36% guideline |
-| CounterfactualBar | Bar | Before/after approval from top model suggestion |
-| SavingsTimeline | Line | Months to 10%/20% down payment targets |
-| AffordablePriceBand | Range | Legend below bar — no overlapping price labels |
-| MonthlyPaymentStack | Stacked bar | P&I, tax, insurance, PMI breakdown |
-| LoanProgramChecklist | Checklist | Conventional / FHA / VA guideline pass-fail |
-| RateSensitivityChart | Dual line | Payment and approval vs. interest rate (±2% from 7.25%) |
-| GlobalFeatureImportance | Horizontal bar | Training-data feature weights (population-level) |
-| IncomeHistogram | Stacked histogram | Brush income band → highlights matching scatter points |
-| ChoroplethMap | Choropleth | Fixed 38–85% scale; click county → filters scatter + histogram |
-| RiskSurface | Heatmap | Click cell → applies DTI/DP to sliders; real XGBoost predictions |
-| HmdaScatter | Scatter | Hover point → highlights county on map; responds to histogram brush |
-| BenchmarkBars | Horizontal bar | User spending vs. BLS peer comparison |
-| CalibrationChart | Line | Model predicted vs. actual approval rates |
-| ShapWaterfallChart | Horizontal bar | Per-feature impact from model perturbation |
-| CountyCalibrationChart | Paired bar | Per-county fairness audit |
+`ChoroplethMap`, `HmdaScatter`, `IncomeHistogram`, `RiskSurface`, `ExpenseDonut`, `CashflowChart`, `RateSensitivityChart`, `ShapWaterfallChart`, `GlobalFeatureImportance`, `CalibrationChart`, `SavingsTimeline`, plus shared helpers in `chart-utils.ts`.
+
+Simpler read-only bars (e.g. counterfactual, guideline gauges) use lightweight SVG for layout; linked interactions and market views rely on D3.
+
+## Linked views and interactions
 
 **Cross-chart links:** Budget mixer ↔ Cashflow, Simulator → All views (debounced 250ms), Histogram ↔ Scatter ↔ Map (bidirectional brushing), Risk Surface → Sliders (click-to-apply), Agent → Charts (AI annotations).
 

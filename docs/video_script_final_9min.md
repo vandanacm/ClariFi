@@ -1,9 +1,30 @@
-# ClariFi — Final 9-minute video script
+# ClariFi — Final video script (legacy 9-min timing)
+
+**Use the rubric version for grading:** [`docs/video_script_10min_rubric.md`](video_script_10min_rubric.md) — **10:00 hard stop**, all ECS 273 points mapped.
 
 **Deck:** `docs/ECS273.pptx` (22 slides)  
 **Team:** Lalitha Dasu · Pranav Manimaran · Vandana Mansur · Team 7  
-**Format:** **~8:00 slides** → **~1:00 live UI** → hard stop at **9:00**  
-**Live demo login:** Maya Gomez — `maya.sac@clarifi.test` / `Testpass123` · CSV: `sacramento_mid_income_transactions.csv`
+**Format (this file):** ~8:00 slides → ~1:00 live → 9:00 total  
+**Live demo login:** Maya Gomez — `maya.sac@clarifi.test` / `Testpass123`
+
+---
+
+## PPT ↔ script alignment (your final deck)
+
+| Slide | Deck title | Script | Status |
+|-------|------------|--------|--------|
+| 1–9 | Title → Dashboard layout | Part 1, slides 1–9 | Aligned |
+| 10 | Readiness & Budget Mixer | Maya, 97 score, donut | Aligned (ignore old “Screen recording 4:05–6:25” on slide if still visible — you use **screenshots**, not embedded video) |
+| 11 | HMDA map / scatter / histogram | Fixed 38–85%, brushing | Aligned |
+| 12 | Planning panels | Simulator + 8 panels | Aligned |
+| 13 | Risk Surface & What-If | Global SHAP + risk surface + perturbation | Aligned |
+| 14 | AI Agent & Saved Scenarios | Agent + scenario table | Aligned |
+| 15–18 | Evaluation (4 slides) | Metrics, calibration, SHAP, personas **94/96/97/8** | Aligned |
+| 19–22 | Challenges → Thank you | Matches | Aligned |
+
+**Fixed in deck speaker notes:** slides 10–14 timing (screenshots not 2-min screen recording), slide 18 persona scores (was “Alameda highest”), slide 10 no longer says “John / 63 score.”
+
+**Optional PPT cleanup (visual only):** Slide 10 subtitle “Screen recording · 4:05–6:25” → change to “UI screenshot” if it confuses you while presenting.
 
 ---
 
@@ -76,7 +97,7 @@ For explainability we added a **risk grid** of real model predictions, **local p
 
 ---
 
-### Slide 8 · Notebook → API · 3:40–4:00 · Pranav
+### Slide 8 · From Notebook to Live API · 3:40–4:00 · Pranav
 
 "Getting from notebook to live app was its own project. We used stratified splits — about **thirty-seven thousand train**, **nine thousand calibration**, **eleven point six thousand test**.
 
@@ -108,15 +129,15 @@ On the viz side, **county click filters scatter and histogram**; **income brushi
 
 "The **what-if simulator** drives eight panels: **BLS peer benchmarks**, lender **DTI and down-payment gauges**, **counterfactual** savings suggestions, **affordability band** versus Sacramento median, **payment stack**, **loan programs**, and **rate sensitivity** around a seven point two five percent baseline."
 
-**Slide 13 — Model audit**
+**Slide 13 — Risk surface & model audit** *(deck title: Risk Surface & What-If)*
 
-"In model audit we show **test metrics**, **peer comparison** to approved Sacramento borrowers, and **what HMDA emphasized in training**. The axis **relative importance, percent of global SHAP magnitude** means: across all fifty-eight thousand loans, **how much each feature moved the model on average** — **DTI is about sixty-nine percent**. That’s **population-level**, not Maya’s profile.
+"This panel is **model audit**. **What HMDA emphasized in training** shows **relative importance, percent of global SHAP magnitude** — on average across fifty-eight thousand loans, **DTI is about sixty-nine percent**. That’s **population-level**, not Maya’s profile.
 
-For **her** inputs, use **what moves your approval likelihood** beside the **risk surface** — green cells are higher approval, red lower; **click a cell** to apply that DTI and down payment to the sliders."
+The **risk surface** is real XGBoost over DTI and down payment — green higher approval, red lower. **Click a cell** to apply it to the sliders. **What moves your approval likelihood** is **personal** — her perturbation drivers."
 
 **Slide 14 — Agent & scenario history**
 
-"The **Ask ClariFi** agent turns model output into plain language — for example, saving toward twenty percent down. **Saved scenarios** persist per user; the table compares the **four most recent** saves by market, approval, DTI, and surplus. In a moment we’ll show this **live** in the browser."
+"**Ask ClariFi** turns what-ifs into plain language. **Saved scenarios** compare the **four most recent** saves by market, time, and price — green highlights the best value per row, including ties. At **eight minutes** we switch to the **live browser** for a quick pass."
 
 ---
 
