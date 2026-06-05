@@ -10,8 +10,6 @@ The stack is a **React + D3** front end, a **FastAPI** back end (scoring, scenar
 
 The readiness score is **not** a credit decision or financial advice.
 
-![ClariFi system architecture](client/public/clarifi_system_architecture.png)
-
 ### For course staff (TA grading)
 
 **Environment file:** API keys and MongoDB settings are **not** committed to git. We submitted **`env.txt`** on **Canvas** (course submission). To run with full functionality (Atlas + optional AI explainer):
@@ -21,11 +19,14 @@ The readiness score is **not** a credit decision or financial advice.
 
 If `.env` is missing, the app still runs: auth uses `client/public/data/local_store.json` (seeded from `local_store.seed.json`), and the LLM agent falls back to rule-based templates.
 
+
+![ClariFi system architecture](client/public/clarifi_system_architecture.png)
+
 ## Installation
 
-**Follow along with this YouTube video to install the application:** [ClariFi Installation | YouTube](https://www.youtube.com/watch?v=PLACEHOLDER)
+**Follow along with this YouTube video to install the application:** [ClariFi Installation | YouTube](https://youtu.be/6YLAViYwFs0)
 
-**[0] Project Walkthrough**
+**[0] Project Walkthrough:** [ClariFi Walkthrough | YouTube](https://www.youtube.com/watch?v=Zj4npYkmaUA)
 
 ### Prerequisites
 
@@ -62,29 +63,15 @@ Confirm ML engine model artifacts exist (tracked in git):
 
 If missing, regenerate from `notebooks/hmda_2025_xgboost_shap.ipynb`.
 
-**Start the API** (each session; leave this terminal running):
-
-```bash
-cd server
-source venv/bin/activate   # Windows: venv\Scripts\activate #if created a venv
-uvicorn main:app --host 127.0.0.1 --port 8001
-```
-
-- API: http://127.0.0.1:8001  
-- Swagger: http://127.0.0.1:8001/docs  
 
 ### 3. Frontend
-
-```bash
-cd client
-npm install
-```
 
 **Start the UI** (second terminal; API must already be on port 8001):
 
 ```bash
 cd client
 npm run dev
+npm install
 ```
 
 - App: http://127.0.0.1:5173 (Vite proxies `/api/*` → port 8001)
