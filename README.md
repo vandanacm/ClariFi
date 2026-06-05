@@ -26,7 +26,7 @@ If `.env` is missing, the app still runs: auth uses `client/public/data/local_st
 
 **Follow along with this YouTube video to install the application:** [ClariFi Installation | YouTube](https://youtu.be/6YLAViYwFs0)
 
-### 0. Project Walkthrough
+### 0. Project Walkthrough Video Presentaion 
 
 [![ClariFi Walkthrough](client/public/walkthrough_thumbnail.png)](https://www.youtube.com/watch?v=Zj4npYkmaUA)
 
