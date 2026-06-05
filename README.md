@@ -21,8 +21,6 @@ The readiness score is **not** a credit decision or financial advice.
 
 If `.env` is missing, the app still runs: auth uses `client/public/data/local_store.json` (seeded from `local_store.seed.json`), and the LLM agent falls back to rule-based templates.
 
-**Optional 1-minute install/demo video:** *(not submitted / not required for this grade)* — add an unlisted YouTube link here if you record one later.
-
 ## Installation
 
 **Follow along with this YouTube video to install the application:** [ClariFi Installation | YouTube](https://www.youtube.com/watch?v=PLACEHOLDER)
@@ -42,22 +40,19 @@ git clone https://github.com/vandanacm/ClariFi.git
 cd ClariFi
 ```
 
-Copy **`.env`** from the course **`env.txt`** on Canvas (see [For course staff](#for-course-staff-ta-grading)), or use defaults:
+Copy **`.env`** from the course **`env.txt`** on Canvas (see [For course staff](#for-course-staff-ta-grading))
 
-```bash
-cp .env.example .env
-```
 
-### 2. Backend
+### 2. Backend + ML engine
 
 ```bash
 cd server
-python -m venv venv
+python -m venv venv #optional
 source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Confirm model artifacts exist (tracked in git):
+Confirm ML engine model artifacts exist (tracked in git):
 
 | File | Purpose |
 |------|---------|
@@ -67,6 +62,17 @@ Confirm model artifacts exist (tracked in git):
 
 If missing, regenerate from `notebooks/hmda_2025_xgboost_shap.ipynb`.
 
+**Start the API** (each session; leave this terminal running):
+
+```bash
+cd server
+source venv/bin/activate   # Windows: venv\Scripts\activate #if created a venv
+uvicorn main:app --host 127.0.0.1 --port 8001
+```
+
+- API: http://127.0.0.1:8001  
+- Swagger: http://127.0.0.1:8001/docs  
+
 ### 3. Frontend
 
 ```bash
@@ -74,22 +80,7 @@ cd client
 npm install
 ```
 
-## Execution (demo)
-
-Run **two terminals** from the repo root.
-
-**Terminal A — API (port 8001):**
-
-```bash
-cd server
-source venv/bin/activate
-uvicorn main:app --host 127.0.0.1 --port 8001
-```
-
-- API: http://127.0.0.1:8001  
-- Swagger: http://127.0.0.1:8001/docs  
-
-**Terminal B — UI (port 5173):**
+**Start the UI** (second terminal; API must already be on port 8001):
 
 ```bash
 cd client
