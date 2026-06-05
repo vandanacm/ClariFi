@@ -87,6 +87,7 @@ export function ChoroplethMap({
   const [hoveredCounty, setHoveredCounty] = useState<string | null>(null);
   const hoveredInfo = hoveredCounty ? readinessMap[hoveredCounty] : null;
 
+  // Fixed CA-wide scale — relative quantiles would reshuffle colors when the market filter changes.
   const approvalExtent = useMemo(
     () => [0.38, 0.85] as [number, number],
     []

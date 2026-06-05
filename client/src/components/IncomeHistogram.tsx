@@ -34,6 +34,7 @@ function binStats(
   return { approved, denied: bin.length - approved, total: bin.length };
 }
 
+/** Brushing a bin calls onBrushIncome so scatter/map can filter to the same income band. */
 export function IncomeHistogram({
   hmda,
   scenario,

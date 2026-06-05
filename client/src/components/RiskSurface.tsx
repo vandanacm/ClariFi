@@ -15,6 +15,7 @@ type RiskGridCell = { dti: number; dp: number; approval: number };
 const _dtiSteps = d3.range(0.15, 0.56, 0.05);
 const _dpSteps = d3.range(0.05, 0.31, 0.05);
 
+/** Grid cells are API-backed approval probabilities; click pushes DTI/DP into the simulator. */
 export function RiskSurface({ score, scenario, onCellClick, agentAnnotation }: Props) {
   const W = 480;
   const H = 300;

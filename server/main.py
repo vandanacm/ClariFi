@@ -97,6 +97,7 @@ app.add_middleware(
 
 
 def mongo_fallback_enabled() -> bool:
+    """Allow local JSON when Atlas is down (common on campus networks)."""
     if not MONGODB_URI:
         return True
     return MONGODB_FALLBACK_LOCAL
@@ -168,6 +169,7 @@ def shutdown() -> None:
 
 
 def load_store() -> dict[str, Any]:
+    """Read the app store from Atlas, or local_store.json when fallback is enabled."""
     global MONGO_CLIENT, MONGO_CONNECT_ERROR
     if MONGO_CLIENT is None:
         if MONGODB_URI and not mongo_fallback_enabled():
@@ -382,8 +384,9 @@ def _local_shap(scenario: ScenarioInput, features: dict[str, Any], approval: flo
 
 
 def _scenario_budget(scenario: ScenarioInput) -> dict[str, Any]:
+    """Derive UI budget fields and the feature row sent to XGBoost."""
     features, feature_mode = build_scenario_features(scenario)
-    monthly_housing = round((scenario.price - scenario.savings) * 0.0062)
+    monthly_housing = round((scenario.price - scenario.savings) * 0.0062)  # same proxy as inference
     flexible = sum(scenario.expenses.values())
     surplus = round(scenario.income - scenario.debt - monthly_housing - flexible)
     dti = features["dti_numeric"] / 100
@@ -413,6 +416,7 @@ def _model_unavailable(scenario: ScenarioInput, reason: str) -> dict[str, Any]:
 
 
 def model_score(scenario: ScenarioInput) -> dict[str, Any]:
+    """Return calibrated approval probability (0–1) and readiness score (0–100)."""
     budget = _scenario_budget(scenario)
     if joblib is None or pd is None:
         return _model_unavailable(scenario, "Python ML dependencies are not installed.")

@@ -103,7 +103,11 @@ def sample_transactions() -> list[dict[str, Any]]:
 
 
 def summarize_transactions(transactions: list[dict[str, Any]]) -> dict[str, Any]:
-    """Aggregate transactions into per-month buckets, then average across months."""
+    """Aggregate transactions into per-month buckets, then average across months.
+
+    Uploads may span uneven month counts; averaging yields a stable monthly income/debt
+    baseline for the dashboard without weighting longer months more heavily.
+    """
     empty = {
         "transactionCount": 0,
         "monthsObserved": 0,

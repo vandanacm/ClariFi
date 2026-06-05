@@ -212,6 +212,7 @@ function App() {
 
   useEffect(() => { setSelectedHmdaCounty(null); setBrushedIncome(null); setScatterBrushedCounty(null); }, [scenario.market]);
 
+  // Debounce slider churn — one scoring request per pause, not per mousemove.
   useEffect(() => {
     let ignore = false;
     const timer = window.setTimeout(async () => {

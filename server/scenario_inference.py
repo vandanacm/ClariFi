@@ -51,7 +51,12 @@ def _decile_from_edges(value: float, edges: list[float]) -> float:
 
 
 def scenario_features_from_config(scenario: Any, config: dict[str, Any]) -> dict[str, Any]:
-    """Notebook-aligned feature dict for dashboard scenarios."""
+    """Notebook-aligned feature dict for dashboard scenarios.
+
+    County medians and decile edges come from scenario_inference_config.json so
+    live slider inputs match the Colab-trained XGBoost pipeline. Interest rate
+    is intentionally omitted — it was excluded from training to avoid leakage.
+    """
     market_codes = config.get("marketCountyCode", _MARKET_FIPS)
     county_code = str(market_codes.get(scenario.market, _MARKET_FIPS["Sacramento"]))
     county_stats = config.get("countyStats", {})
@@ -60,6 +65,7 @@ def scenario_features_from_config(scenario: Any, config: dict[str, Any]) -> dict
     income_k = max(scenario.income * 12 / 1000, 1)
     loan_amount = max(scenario.price - scenario.savings, 1)
     property_value = max(scenario.price, 1)
+    # P&I proxy (~7.25% / 30yr) so DTI is computable before the user opens rate panels.
     monthly_housing = loan_amount * 0.0062
     dti = (scenario.debt + monthly_housing) / max(scenario.income, 1)
     ltv = loan_amount / property_value
@@ -118,6 +124,7 @@ def scenario_features_legacy(scenario: Any) -> dict[str, Any]:
     annual_income_k = max(scenario.income * 12 / 1000, 1)
     loan_amount = max(scenario.price - scenario.savings, 1)
     property_value = max(scenario.price, 1)
+    # P&I proxy (~7.25% / 30yr) so DTI is computable before the user opens rate panels.
     monthly_housing = loan_amount * 0.0062
     dti = (scenario.debt + monthly_housing) / max(scenario.income, 1)
     ltv = loan_amount / property_value
@@ -151,6 +158,7 @@ def scenario_features_legacy(scenario: Any) -> dict[str, Any]:
 
 
 def build_scenario_features(scenario: Any) -> tuple[dict[str, Any], str]:
+    # Prefer notebook export; legacy path exists only when config JSON is missing.
     config = load_inference_config()
     if config:
         return scenario_features_from_config(scenario, config), "notebook-export"
@@ -161,6 +169,7 @@ def features_dataframe(features: dict[str, Any], model: Any | None = None):
     """Build a one-row DataFrame with columns ordered for the sklearn pipeline."""
     import pandas as pd
 
+    # Column order must match training or sklearn rejects the row.
     if model is not None and hasattr(model, "feature_names_in_"):
         columns = list(model.feature_names_in_)
         row = {col: features.get(col) for col in columns}

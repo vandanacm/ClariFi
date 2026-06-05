@@ -4,7 +4,7 @@ ECS 273 Team 7 — Lalitha Dasu, Pranav Manimaran, Vandana Mansur
 
 ## Description
 
-ClariFi is an AI-guided personal finance and **mortgage readiness** visual analytics system for California households. Users upload monthly transaction CSVs (or use demo personas), adjust budget and what-if sliders, and see an **educational** approval-likelihood score driven by a calibrated **XGBoost** model trained on roughly **58,000** stratified-sampled **HMDA 2025** California applications. The dashboard exposes **18 linked views**—county choropleth, income histogram with brushing, HMDA scatter, risk-surface heatmap, SHAP-style explanations, BLS peer benchmarks, and more—so users can relate personal cashflow to regional market patterns before applying for a loan.
+ClariFi is an AI-guided personal finance and **mortgage readiness** visual analytics system for California households. Users upload monthly transaction CSVs (or use demo personas), adjust budget and what-if sliders, and see an **educational** approval-likelihood score driven by a calibrated **XGBoost** model trained on roughly **58,000** stratified-sampled **HMDA 2025** California applications. The dashboard exposes **18 linked views**, county choropleth, income histogram with brushing, HMDA scatter, risk-surface heatmap, SHAP-style explanations, BLS peer benchmarks, and more—so users can relate personal cashflow to regional market patterns before applying for a loan.
 
 The stack is a **React + D3** front end, a **FastAPI** back end (scoring, scenario API, optional LLM explanations), and a data layer (processed HMDA JSON, BLS benchmarks, model artifacts under `client/public/data/model_outputs/`, MongoDB Atlas with **local JSON fallback** for auth and saved scenarios). Scoring features align with the Colab notebook via `scenario_inference_config.json`; the UI debounces slider updates and links map, histogram, and scatter through shared state.
 
@@ -26,7 +26,9 @@ If `.env` is missing, the app still runs: auth uses `client/public/data/local_st
 
 **Follow along with this YouTube video to install the application:** [ClariFi Installation | YouTube](https://youtu.be/6YLAViYwFs0)
 
-**[0] Project Walkthrough:** [ClariFi Walkthrough | YouTube](https://www.youtube.com/watch?v=Zj4npYkmaUA)
+### 0. Project Walkthrough
+
+[![ClariFi Walkthrough](client/public/walkthrough_thumbnail.png)](https://www.youtube.com/watch?v=Zj4npYkmaUA)
 
 ### Prerequisites
 
